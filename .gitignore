@@ -1,2 +1,3 @@
-__pycache__/
-*.egg_info/
+__pycache__
+*.egg_info
+.DS_Store
