@@ -413,6 +413,25 @@ class NodeOutput(NodeInputOutput):
     def __hash__(self) -> int:
         return hash((self.owner, self.name, self._attributes))
     
+    def _checkBinaryOperand(self, other):
+        if not isinstance(other, NodeOutput):
+            raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
+    def __add__(self, other : NodeOutput):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__add__").output.output
+    def __sub__(self, other : NodeOutput):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__div__").output.output
+    def __mul__(self, other : NodeOutput):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__mul__").output.output
+    def __truediv__(self, other : NodeOutput):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__truediv__").output.output
+    def __div__(self, other : NodeOutput):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__div__").output.output
+    
     class AbstractAttribute(ABC):
         @abstractmethod
         def __call__(self, data):
@@ -744,6 +763,20 @@ class ProcessWorkflow(ProcessNode):
             # add to outputs inputs
             outputs.append(output)
             inputs.append(input)
+        # look for binary operand and add there dependencies
+        def addOutputsInputsBinaryOperand(binary_output):
+            # check binary_output realy is binary
+            if isinstance(binary_output.owner, _BinaryOperand):
+                # handle input 1
+                outputs.append(binary_output.owner.input_1)
+                inputs.append(binary_output.owner.input.input_1)
+                addOutputsInputsBinaryOperand(binary_output.owner.input_1)
+                # handle input 2
+                outputs.append(binary_output.owner.input_2)
+                inputs.append(binary_output.owner.input.input_2)
+                addOutputsInputsBinaryOperand(binary_output.owner.input_2)
+        for output in outputs:
+            addOutputsInputsBinaryOperand(output)
         
         # add reference to nodes
         self._nodes = tuple(set(filter(lambda node : node != self, map(lambda input_output : input_output.owner, outputs + inputs))))
@@ -794,16 +827,17 @@ class ProcessWorkflow(ProcessNode):
             if idx not in to_remove:
                 self._addEntry(output, input, input_output_wf)
                 # check if outout is wf
-                if output.owner != self:
-                    out_ = output
-                else:
-                    out_ = output.name
-                # check if input is wf
-                if input.owner != self:
-                    in_ = input
-                else:
-                    in_ = input.name
-                new_map.append((out_,in_))
+                # if output.owner != self:
+                #     out_ = output
+                # else:
+                #     out_ = output.name
+                # # check if input is wf
+                # if input.owner != self:
+                #     in_ = input
+                # else:
+                #     in_ = input.name
+                # new_map.append((out_,in_))
+                new_map.append((output,input))
 
         # list with inputs to workflow (direct mapping is mapping directly between input and output of workflow)
         self._mandatory_inputs = tuple(input_output_wf["mandatory_inputs"] + input_output_wf["direct_mapping"])
@@ -1213,3 +1247,43 @@ class IteratingNode(ProcessNode):
     @property
     def default_inputs(self) -> tuple:
         return self._default_inputs
+    
+class _BinaryOperand(ProcessNode):
+    outputs = ("output",)
+    def __init__(self, input_1, input_2, operand : str, description: str = "", create_input_output_attr: bool = True) -> None:
+        super().__init__(description, create_input_output_attr)
+        self.operand = operand
+        self.input_1 = input_1
+        self.input_2 = input_2
+
+    def _run(self, input_1, input_2) -> tuple:
+        return getattr(input_1, self.operand)(input_2)
+    
+class EntryNode(ProcessNode):
+    def __init__(self, entry : str, description: str = "", create_input_output_attr: bool = True) -> None:
+        self._outputs = (entry, )
+        super().__init__(description, create_input_output_attr)
+
+    def _run(self, **kwds) -> tuple:
+        return kwds[self._outputs[0]]
+        
+    # modified properties
+    @property
+    def outputs(self) -> tuple:
+        return self._outputs
+    
+    @property
+    def inputs(self) -> tuple:
+        return self._outputs
+    
+    @property
+    def mandatory_inputs(self) -> tuple:
+        return self.inputs
+    
+    @property
+    def non_mandatory_inputs(self) -> tuple:
+        return tuple()
+    
+    @property
+    def default_inputs(self) -> tuple:
+        return tuple()
