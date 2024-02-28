@@ -176,7 +176,7 @@ class ProcessNode(ABC):
             if len(w):
                 print(f"Warnings from node {self}:")
                 for warn in w:
-                    print(f"\t {warn.message}")
+                    print(f"\t{warn.category}: {warn.message}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
