@@ -1112,7 +1112,7 @@ class IteratingNode(ProcessNode):
         if self.parallel_processing and nr_iter > 1:
             with warnings.catch_warnings(record=True) as w:
                 # Cause all warnings to always be triggered.
-                warnings.simplefilter("always")
+                warnings.simplefilter("default")
                 # queue to update tqdm process bar
                 pbar_queue = Queue()
                 # process to update tqdm process bar
@@ -1134,7 +1134,7 @@ class IteratingNode(ProcessNode):
                 pbar_queue.join_thread()
                 # join pbar process
                 pbar_proc.join()
-                if len(w) > 0:
+                if len(w):
                     print("Hallååååååå")
             # warnings.simplefilter("always")
             # combine process_results
