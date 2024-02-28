@@ -173,7 +173,7 @@ class ProcessNode(ABC):
                 raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
             
             # Print warning
-            if len(w) and verbose:
+            if len(w):
                 print(f"Warnings from node {self}:")
                 for warn in w:
                     print(f"\t {warn.message}")
