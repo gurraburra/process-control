@@ -1110,31 +1110,33 @@ class IteratingNode(ProcessNode):
         
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
-            # with warnings.catch_warnings():
-            # Cause all warnings to always be triggered.
-            warnings.simplefilter("error")
-            # queue to update tqdm process bar
-            pbar_queue = Queue()
-            # process to update tqdm process bar
-            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
-            # process to execute
-            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
-            # start processes
-            pbar_proc.start()
-            [p[1].start() for p in processes]
-            # get result
-            process_results = [p[0].recv() for p in processes]
-            # wait for them to finnish
-            [p[1].join() for p in processes]
-            [p[0].close() for p in processes]
-            # terminate pbar_process by sending None to queue
-            pbar_queue.put(None)
-            # close queue and wait for backround thread to join
-            pbar_queue.close()
-            pbar_queue.join_thread()
-            # join pbar process
-            pbar_proc.join()
-            warnings.simplefilter("always")
+            with warnings.catch_warnings(record=True) as w:
+                # Cause all warnings to always be triggered.
+                warnings.simplefilter("always")
+                # queue to update tqdm process bar
+                pbar_queue = Queue()
+                # process to update tqdm process bar
+                pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+                # process to execute
+                processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+                # start processes
+                pbar_proc.start()
+                [p[1].start() for p in processes]
+                # get result
+                process_results = [p[0].recv() for p in processes]
+                # wait for them to finnish
+                [p[1].join() for p in processes]
+                [p[0].close() for p in processes]
+                # terminate pbar_process by sending None to queue
+                pbar_queue.put(None)
+                # close queue and wait for backround thread to join
+                pbar_queue.close()
+                pbar_queue.join_thread()
+                # join pbar process
+                pbar_proc.join()
+                if len(w) > 0:
+                    print("Hallååååååå")
+            # warnings.simplefilter("always")
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
