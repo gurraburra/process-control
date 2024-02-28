@@ -1117,13 +1117,13 @@ class IteratingNode(ProcessNode):
                 pbar_queue = Queue()
                 # process to update tqdm process bar
                 pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
-                # process to execute
-                processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
-                # start processes
-                pbar_proc.start()
-                [p[1].start() for p in processes]
                 if len(w):
                     print("Hallååååååå")
+            # process to execute
+            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            # start processes
+            pbar_proc.start()
+            [p[1].start() for p in processes]
             # get result
             process_results = [p[0].recv() for p in processes]
             # wait for them to finnish
