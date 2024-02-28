@@ -1125,6 +1125,7 @@ class IteratingNode(ProcessNode):
             process_results = [p[0].recv() for p in processes]
             # wait for them to finnish
             [p[1].join() for p in processes]
+            [p[0].close() for p in processes]
             print(f"iter node workers joined (pid={os.getpid()}): ", threading.active_count())
             # terminate pbar_process by sending None to queue
             pbar_queue.put(None)
@@ -1159,7 +1160,7 @@ class IteratingNode(ProcessNode):
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
-        in_pipe, out_pipe = Pipe()
+        in_pipe, out_pipe = Pipe(duplex = False)
         p = Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
         return in_pipe, p
 
