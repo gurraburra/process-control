@@ -1152,12 +1152,10 @@ class IteratingNode(ProcessNode):
     
     @staticmethod
     def _pbarListener(q, nr_iter, desc, show_progress):
-        print(f"_pbarListener enter (pid={os.getpid()}): ", threading.active_count())
         if show_progress:
             pbar = tqdm(total = nr_iter, desc = desc)
             for nr in iter(q.get, None):
                 pbar.update(nr)
-        print(f"_pbarListener done (pid={os.getpid()}): ", threading.active_count())
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
