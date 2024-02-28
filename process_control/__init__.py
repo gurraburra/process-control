@@ -1119,6 +1119,8 @@ class IteratingNode(ProcessNode):
             with warnings.catch_warnings(record=True) as w:
                 # Cause all warnings to always be triggered.
                 warnings.simplefilter("default")
+                for thread in threading.enumerate(): 
+                    print(thread.name)
                 # start processes
                 pbar_proc.start()
                 if len(w):
