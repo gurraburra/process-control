@@ -162,7 +162,7 @@ class ProcessNode(ABC):
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
-            # warnings.simplefilter("ignore", category=DeprecationWarning)
+            warnings.simplefilter("ignore", category=DeprecationWarning)
             try:
                 run_kwds = {}
                 if self.has_cache_ignore_option:
@@ -1116,19 +1116,8 @@ class IteratingNode(ProcessNode):
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
-            print("pid=",os.getpid())
-            for thread in threading.enumerate(): 
-                    print(thread.name)
-            with warnings.catch_warnings(record=True) as w:
-                # Cause all warnings to always be triggered.
-                warnings.simplefilter("default")
-                # start processes
-                pbar_proc.start()
-                if len(w):
-                    print("Hallååååååå")
-            print("pid=",os.getpid())
-            for thread in threading.enumerate(): 
-                print(thread.name)
+            # start processes
+            pbar_proc.start()
             [p[1].start() for p in processes]
             # get result
             process_results = [p[0].recv() for p in processes]
@@ -1142,7 +1131,6 @@ class IteratingNode(ProcessNode):
             pbar_queue.join_thread()
             # join pbar process
             pbar_proc.join()
-            # warnings.simplefilter("always")
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
