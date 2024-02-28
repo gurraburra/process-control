@@ -1146,8 +1146,8 @@ class IteratingNode(ProcessNode):
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     
     @staticmethod
-    def _pbarListener(pbar_queue, nr_iter, desc, show_progress):
-        if show_progress:
+    def _pbarListener(pbar_queue, nr_iter, desc, verbose):
+        if verbose:
             pbar = tqdm(total = nr_iter, desc = desc)
             for nr in iter(pbar_queue.get, None):
                 pbar.update(nr)
