@@ -159,24 +159,24 @@ class ProcessNode(ABC):
             
         # compute output
         # catch warnings 
-        # with warnings.catch_warnings(record=True) as w:
+        with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
-            # warnings.simplefilter("always")
-        try:
-            run_kwds = {}
-            if self.has_cache_ignore_option:
-                run_kwds["ignore_cache"] = ignore_cache
-            if self.has_verbose_option:
-                run_kwds["verbose"] = verbose
-            output_tuple = self._run(**run_kwds, **input_dict)
-        except Exception as e:
-            raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
+            warnings.simplefilter("always")
+            try:
+                run_kwds = {}
+                if self.has_cache_ignore_option:
+                    run_kwds["ignore_cache"] = ignore_cache
+                if self.has_verbose_option:
+                    run_kwds["verbose"] = verbose
+                output_tuple = self._run(**run_kwds, **input_dict)
+            except Exception as e:
+                raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
             
             # Print warning
-            # if len(w):
-            #     print(f"Warnings from node {self}:")
-            #     for warn in w:
-            #         print(f"\t {warn.message}")
+            if len(w):
+                print(f"Warnings from node {self}:")
+                for warn in w:
+                    print(f"\t {warn.message}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
