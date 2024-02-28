@@ -1122,20 +1122,20 @@ class IteratingNode(ProcessNode):
                 # start processes
                 pbar_proc.start()
                 [p[1].start() for p in processes]
-                # get result
-                process_results = [p[0].recv() for p in processes]
-                # wait for them to finnish
-                [p[1].join() for p in processes]
-                [p[0].close() for p in processes]
-                # terminate pbar_process by sending None to queue
-                pbar_queue.put(None)
-                # close queue and wait for backround thread to join
-                pbar_queue.close()
-                pbar_queue.join_thread()
-                # join pbar process
-                pbar_proc.join()
                 if len(w):
                     print("Hallååååååå")
+            # get result
+            process_results = [p[0].recv() for p in processes]
+            # wait for them to finnish
+            [p[1].join() for p in processes]
+            [p[0].close() for p in processes]
+            # terminate pbar_process by sending None to queue
+            pbar_queue.put(None)
+            # close queue and wait for backround thread to join
+            pbar_queue.close()
+            pbar_queue.join_thread()
+            # join pbar process
+            pbar_proc.join()
             # warnings.simplefilter("always")
             # combine process_results
             # mapped = chain.from_iterable(process_results)
