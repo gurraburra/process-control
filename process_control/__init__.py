@@ -161,8 +161,8 @@ class ProcessNode(ABC):
         # catch warnings 
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
-            warnings.simplefilter("always")
             warnings.simplefilter("once", category=DeprecationWarning)
+            warnings.simplefilter("always")
             try:
                 run_kwds = {}
                 if self.has_cache_ignore_option:
@@ -177,7 +177,7 @@ class ProcessNode(ABC):
             if len(w):
                 print(f"Warnings from node {self}:")
                 for warn in w:
-                    print(f"\t{warn.category}: {warn.message}")
+                    print(f"\t{str(warn.category)}: {warn.message}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
