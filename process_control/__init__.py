@@ -4,9 +4,7 @@ from collections.abc import Callable, Iterable
 import warnings
 import inspect
 import numpy as np
-import threading
-# import multiprocess as mp
-from multiprocess import cpu_count, Process, Pipe, Pool, current_process, RLock, Queue
+from multiprocess import cpu_count, Process, Pipe, Queue
 import copy
 from tqdm import tqdm
 from itertools import chain
@@ -1113,7 +1111,6 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to update tqdm process bar
-            print("nr threads: ", threading.active_count())
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             pbar_proc.start()
             # process to execute
