@@ -161,8 +161,8 @@ class ProcessNode(ABC):
         # catch warnings 
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
-            warnings.simplefilter("once", category=DeprecationWarning)
             warnings.simplefilter("always")
+            warnings.simplefilter("once", category=DeprecationWarning)
             try:
                 run_kwds = {}
                 if self.has_cache_ignore_option:
