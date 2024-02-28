@@ -159,25 +159,25 @@ class ProcessNode(ABC):
             
         # compute output
         # catch warnings 
-        # with warnings.catch_warnings(record=True) as w:
-        #     # Cause all warnings to always be triggered.
-        #     warnings.simplefilter("always")
-        #     # warnings.simplefilter("ignore", category=DeprecationWarning)
-        try:
-            run_kwds = {}
-            if self.has_cache_ignore_option:
-                run_kwds["ignore_cache"] = ignore_cache
-            if self.has_verbose_option:
-                run_kwds["verbose"] = verbose
-            output_tuple = self._run(**run_kwds, **input_dict)
-        except Exception as e:
-            raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            # warnings.simplefilter("ignore", category=DeprecationWarning)
+            try:
+                run_kwds = {}
+                if self.has_cache_ignore_option:
+                    run_kwds["ignore_cache"] = ignore_cache
+                if self.has_verbose_option:
+                    run_kwds["verbose"] = verbose
+                output_tuple = self._run(**run_kwds, **input_dict)
+            except Exception as e:
+                raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
             
-            # # Print warning
-            # if len(w):
-            #     print(f"Warnings from node {self}:")
-            #     for warn in w:
-            #         print(f"\t{warn.message}")
+            # Print warning
+            if len(w):
+                print(f"Warnings from node {self}:")
+                for warn in w:
+                    print(f"\t{warn.message}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
@@ -1110,18 +1110,18 @@ class IteratingNode(ProcessNode):
         
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
-            with warnings.catch_warnings() as w:
-            # Cause all warnings to always be triggered.
-                warnings.simplefilter("error", category=DeprecationWarning)
-                # queue to update tqdm process bar
-                pbar_queue = Queue()
-                # process to update tqdm process bar
-                pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
-                # process to execute
-                processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
-                # start processes
-                pbar_proc.start()
-                [p[1].start() for p in processes]
+            # with warnings.catch_warnings() as w:
+            # # Cause all warnings to always be triggered.
+            #     warnings.simplefilter("error", category=DeprecationWarning)
+            # queue to update tqdm process bar
+            pbar_queue = Queue()
+            # process to update tqdm process bar
+            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+            # process to execute
+            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            # start processes
+            pbar_proc.start()
+            [p[1].start() for p in processes]
             # get result
             process_results = [p[0].recv() for p in processes]
             # wait for them to finnish
