@@ -1121,9 +1121,9 @@ class IteratingNode(ProcessNode):
                 warnings.simplefilter("default")
                 # start processes
                 pbar_proc.start()
-                [p[1].start() for p in processes]
                 if len(w):
                     print("Hallååååååå")
+            [p[1].start() for p in processes]
             # get result
             process_results = [p[0].recv() for p in processes]
             # wait for them to finnish
