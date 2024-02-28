@@ -1109,7 +1109,7 @@ class IteratingNode(ProcessNode):
         
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
-            print("iter node: ", threading.active_count())
+            print(f"iter node (pid={os.getpid()}): ", threading.active_count())
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to update tqdm process bar
