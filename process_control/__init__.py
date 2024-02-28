@@ -1116,6 +1116,7 @@ class IteratingNode(ProcessNode):
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            print("pid=",os.getpid())
             for thread in threading.enumerate(): 
                     print(thread.name)
             with warnings.catch_warnings(record=True) as w:
@@ -1125,6 +1126,7 @@ class IteratingNode(ProcessNode):
                 pbar_proc.start()
                 if len(w):
                     print("Hallååååååå")
+            print("pid=",os.getpid())
             for thread in threading.enumerate(): 
                 print(thread.name)
             [p[1].start() for p in processes]
