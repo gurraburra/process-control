@@ -1110,9 +1110,9 @@ class IteratingNode(ProcessNode):
         
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
-            # with warnings.catch_warnings() as w:
-            # # Cause all warnings to always be triggered.
-            #     warnings.simplefilter("error", category=DeprecationWarning)
+            # with warnings.catch_warnings():
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("error")
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to update tqdm process bar
@@ -1134,6 +1134,7 @@ class IteratingNode(ProcessNode):
             pbar_queue.join_thread()
             # join pbar process
             pbar_proc.join()
+            warnings.simplefilter("default")
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
