@@ -78,6 +78,10 @@ class ProcessNode(ABC):
     def has_cache_ignore_option(self):
         return "ignore_cache" in inspect.getfullargspec(self._run).args
     
+    @property
+    def has_verbose_option(self):
+        return "verbose" in inspect.getfullargspec(self._run).args
+    
     @description.setter
     def description(self, val : str) -> None:
         self._description = str(val)
@@ -134,15 +138,16 @@ class ProcessNode(ABC):
     def _run(self, in_1, in_2, in_3 = None) -> tuple:
         return tuple(None for out in self.outputs)
     
-    def run(self, ignore_cache : bool = False, **input_dict) -> NodeRunOutput:
+    def run(self, ignore_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
         # check if input chached
         if self.cache_input and not ignore_cache:
             if self._inputEquality(input_dict):
                 if self._output_cache is not None:
-                    print(f"{self.__str__()}: Using cached data.")
+                    if verbose:
+                        print(f"{self.__str__()}: Using cached data.")
                     return self._output_cache
             else:
-                self._copyInput(input_dict)
+                self._copyInput(input_dict, verbose)
         # check data in contains all necessary input
         for input_str in self.mandatory_inputs:
             if input_str not in input_dict:
@@ -158,15 +163,17 @@ class ProcessNode(ABC):
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
             try:
+                run_kwds = {}
                 if self.has_cache_ignore_option:
-                    output_tuple = self._run(ignore_cache = ignore_cache, **input_dict)
-                else:
-                    output_tuple = self._run(**input_dict)
+                    run_kwds["ignore_cache"] = ignore_cache
+                if self.has_verbose_option:
+                    run_kwds["verbose"] = verbose
+                output_tuple = self._run(**run_kwds, **input_dict)
             except Exception as e:
                 raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
             
             # Print warning
-            if len(w):
+            if len(w) and verbose:
                 print(f"Warnings from node {self}:")
                 for warn in w:
                     print(f"\t {warn.message}")
@@ -185,7 +192,7 @@ class ProcessNode(ABC):
         
         # check if data should be cached
         if self.cache_output and not ignore_cache:
-            self._copyOutput(output)
+            self._copyOutput(output, verbose)
 
         # return output
         return output
@@ -198,22 +205,24 @@ class ProcessNode(ABC):
         else:
             return False
         
-    def _copyInput(self, dict_ : dict):
+    def _copyInput(self, dict_ : dict, verbose : bool):
         self._input_cache = {}
         for k,v in dict_.items():
             try:
                 self._input_cache[k] = copy.deepcopy(v)
             except:
-                print(f"Could not copy input '{k}' of node {self}, copying only reference.")
+                if verbose:
+                    print(f"Could not copy input '{k}' of node {self}, copying only reference.")
                 self._input_cache[k] = v
 
-    def _copyOutput(self, output : tuple):
+    def _copyOutput(self, output : tuple, verbose : bool):
         output_cache = [None]*len(output)
         for i,v in enumerate(output):
             try:
                 output_cache[i] = copy.deepcopy(v)
             except:
-                print(f"Could not copy output '{self.outputs[i]}' of node {self}, copying only reference.")
+                if verbose:
+                    print(f"Could not copy output '{self.outputs[i]}' of node {self}, copying only reference.")
                 output_cache[i] = v
         self._output_cache = NodeRunOutput(self, self.outputs, output_cache)
         
@@ -421,7 +430,7 @@ class NodeOutput(NodeInputOutput):
         return _BinaryOperand(self, other, "__add__").output.output
     def __sub__(self, other : NodeOutput):
         self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__div__").output.output
+        return _BinaryOperand(self, other, "__sub__").output.output
     def __mul__(self, other : NodeOutput):
         self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__mul__").output.output
@@ -573,7 +582,7 @@ class ProcessWorkflow(ProcessNode):
         return tuple(self._internal_data_map_in[self].keys())
     
     
-    def _run(self, ignore_cache : bool, **input_dict) -> tuple:
+    def _run(self, ignore_cache : bool, verbose : bool, **input_dict) -> tuple:
         # check nodes intialized
         if not self._nodes_init:
             raise RuntimeError(f"Nodes of workflow has not been initalized.")
@@ -588,7 +597,7 @@ class ProcessWorkflow(ProcessNode):
         for order in range(1, max(self.execution_order) + 1):
             self._executeNodes(
                     tuple(node_idx for node_idx, node_order in enumerate(self.execution_order) if node_order == order), 
-                        input_data_transfer, ignore_cache)
+                        input_data_transfer, ignore_cache, verbose)
 
         # return workflow inputs from its internal nodes
         return tuple(input_data_transfer[self][output] for output in self.outputs)
@@ -599,10 +608,10 @@ class ProcessWorkflow(ProcessNode):
             if key not in input_dict:
                 input_dict[key] = value
 
-    def _executeNodes(self, node_idxs : tuple[int], input_data_transfer : dict, ignore_cache : bool):
+    def _executeNodes(self, node_idxs : tuple[int], input_data_transfer : dict, ignore_cache : bool, verbose : bool):
         for node_idx in node_idxs:
             node = self.nodes[node_idx]
-            self._transferNodeOutputs(node.run(ignore_cache=ignore_cache, **input_data_transfer[node]), input_data_transfer)
+            self._transferNodeOutputs(node.run(ignore_cache=ignore_cache, verbose=verbose, **input_data_transfer[node]), input_data_transfer)
 
     def _transferNodeOutputs(self, node_output : NodeRunOutput, input_data_transfer : dict) -> None:
         for output_str, transfer_dict in self._internal_data_map_out[node_output._owner].items():
@@ -696,10 +705,10 @@ class ProcessWorkflow(ProcessNode):
         if redudant_nodes:
             if self.minimal_execution:
                 # non executing nodes
-                print(f"Non-executing nodes found in workflow: node {', node'.join(map(str, redudant_nodes))}.")
+                print(f"Non-executing nodes found in workflow: node {', node '.join(map(str, redudant_nodes))}.")
             else:
                 # redudant nodes
-                print(f"Redudant nodes found in workflow: node {', node'.join(map(str, redudant_nodes))}.")
+                print(f"Redudant nodes found in workflow: node {', node '.join(map(str, redudant_nodes))}.")
                 # determine execution order for redudant nodes
                 for redudant_node_idx in redudant_nodes:
                     self._findExecutionOrder(redudant_node_idx + 1, self._internal_execution_order)
@@ -1084,7 +1093,7 @@ class IteratingNode(ProcessNode):
     def outputs(self) -> tuple:
         return self._outputs
 
-    def _run(self, **input_dict):
+    def _run(self, verbose : bool, **input_dict):
         # check input_dict
         nr_iter = self._checkInput(input_dict)
         # iterating inputs
@@ -1103,10 +1112,10 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to update tqdm process bar
-            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})"))
+            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             pbar_proc.start()
             # process to execute
-            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
             # start processes
             [p[1].start() for p in processes]
             # get result
@@ -1120,18 +1129,22 @@ class IteratingNode(ProcessNode):
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
         else:
-            f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
-            mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
+            f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
+            if verbose:
+                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
+            else:
+                mapped = map(f_single_iteration, zip(*arg_values_list))
             return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
 
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     
     @staticmethod
-    def _pbarListener(q, nr_iter, desc):
-        pbar = tqdm(total = nr_iter, desc = desc)
-        for nr in iter(q.get, None):
-            pbar.update(nr)
+    def _pbarListener(q, nr_iter, desc, show_progress):
+        if show_progress:
+            pbar = tqdm(total = nr_iter, desc = desc)
+            for nr in iter(q.get, None):
+                pbar.update(nr)
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
@@ -1140,13 +1153,13 @@ class IteratingNode(ProcessNode):
         return in_pipe, p
 
     @staticmethod
-    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : Pipe) -> list:
+    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : Pipe) -> list:
         outputs = []
         nr_iter, iterable_list = arg_values
         update_every = int(nr_iter / 100)
         nr = 0
         for args in zip(*iterable_list):
-            outputs.append(iterating_node.run(ignore_cache=True, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)}).values)
+            outputs.append(iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)}).values)
             nr += 1
             if nr > update_every:
                 pbar_queue.put(nr)
