@@ -1112,7 +1112,10 @@ class IteratingNode(ProcessNode):
         if self.parallel_processing and nr_iter > 1:
             print(f"iter node enter (pid={os.getpid()}): ", threading.active_count())
             # queue to update tqdm process bar
-            pbar_queue = Queue()
+            if verbose:
+                pbar_queue = Queue()
+            else:
+                pbar_queue = None
             # process to update tqdm process bar
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
@@ -1128,10 +1131,11 @@ class IteratingNode(ProcessNode):
             [p[0].close() for p in processes]
             print(f"iter node workers joined (pid={os.getpid()}): ", threading.active_count())
             # terminate pbar_process by sending None to queue
-            pbar_queue.put(None)
-            # close queue and wait for backround thread to join
-            pbar_queue.close()
-            pbar_queue.join_thread()
+            if verbose:
+                pbar_queue.put(None)
+                # close queue and wait for backround thread to join
+                pbar_queue.close()
+                pbar_queue.join_thread()
             # join pbar process
             pbar_proc.join()
             print(f"iter node pbar joined (pid={os.getpid()}): ", threading.active_count())
@@ -1152,10 +1156,10 @@ class IteratingNode(ProcessNode):
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     
     @staticmethod
-    def _pbarListener(q, nr_iter, desc, show_progress):
+    def _pbarListener(pbar_queue, nr_iter, desc, show_progress):
         if show_progress:
             pbar = tqdm(total = nr_iter, desc = desc)
-            for nr in iter(q.get, None):
+            for nr in iter(pbar_queue.get, None):
                 pbar.update(nr)
     
     @staticmethod
@@ -1173,10 +1177,11 @@ class IteratingNode(ProcessNode):
         for args in zip(*iterable_list):
             outputs.append(iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)}).values)
             nr += 1
-            if nr > update_every:
+            if pbar_queue is not None and nr > update_every:
                 pbar_queue.put(nr)
                 nr = 0
-        pbar_queue.put(nr)
+        if pbar_queue is not None:
+            pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
         pipe.close()
