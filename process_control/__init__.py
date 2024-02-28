@@ -1112,11 +1112,11 @@ class IteratingNode(ProcessNode):
         if self.parallel_processing and nr_iter > 1:
             # queue to update tqdm process bar
             pbar_queue = Queue()
-            # process to update tqdm process bar
-            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             with warnings.catch_warnings(record=True) as w:
                 # Cause all warnings to always be triggered.
                 warnings.simplefilter("default")
+                # process to update tqdm process bar
+                pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
                 # process to execute
                 processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
                 if len(w):
