@@ -162,7 +162,7 @@ class ProcessNode(ABC):
         with warnings.catch_warnings(record=True) as w:
             # Cause all warnings to always be triggered.
             warnings.simplefilter("always")
-            warnings.simplefilter("once", category=DeprecationWarning)
+            warnings.simplefilter("ignore", category=DeprecationWarning)
             try:
                 run_kwds = {}
                 if self.has_cache_ignore_option:
@@ -177,7 +177,7 @@ class ProcessNode(ABC):
             if len(w):
                 print(f"Warnings from node {self}:")
                 for warn in w:
-                    print(f"\t{warn.category} : {warn.lineno} : {warn.__module__} : {warn.message}")
+                    print(f"\t{warn.message}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
@@ -1110,17 +1110,12 @@ class IteratingNode(ProcessNode):
         
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
-            print(f"iter node enter (pid={os.getpid()}): ", threading.active_count())
             # queue to update tqdm process bar
-            if verbose:
-                pbar_queue = Queue()
-            else:
-                pbar_queue = None
+            pbar_queue = Queue()
             # process to update tqdm process bar
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
-            print(f"iter node starting processes (pid={os.getpid()}): ", threading.active_count())
             # start processes
             pbar_proc.start()
             [p[1].start() for p in processes]
@@ -1129,18 +1124,13 @@ class IteratingNode(ProcessNode):
             # wait for them to finnish
             [p[1].join() for p in processes]
             [p[0].close() for p in processes]
-            print(f"iter node workers joined (pid={os.getpid()}): ", threading.active_count())
             # terminate pbar_process by sending None to queue
-            if verbose:
-                pbar_queue.put(None)
-                # close queue and wait for backround thread to join
-                pbar_queue.close()
-                pbar_queue.join_thread()
+            pbar_queue.put(None)
+            # close queue and wait for backround thread to join
+            pbar_queue.close()
+            pbar_queue.join_thread()
             # join pbar process
             pbar_proc.join()
-            print(f"iter node pbar joined (pid={os.getpid()}): ", threading.active_count())
-            for thread in threading.enumerate(): 
-                print(thread.name)
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
@@ -1177,17 +1167,16 @@ class IteratingNode(ProcessNode):
         for args in zip(*iterable_list):
             outputs.append(iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)}).values)
             nr += 1
-            if pbar_queue is not None and nr > update_every:
+            if nr > update_every:
                 pbar_queue.put(nr)
                 nr = 0
-        if pbar_queue is not None:
-            pbar_queue.put(nr)
+        pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
         pipe.close()
 
     @staticmethod
-    def _iterArgs(nr_iter, nr_chunks, iterable_list) -> tuple:
+    def _iterArgs(nr_iter, nr_chunks, iterable_list):
         chunk_size, extra = divmod(nr_iter, nr_chunks)
         if extra:
             chunk_size += 1
