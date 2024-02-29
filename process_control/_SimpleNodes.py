@@ -66,31 +66,31 @@ class CustomNode(ProcessNode):
             def_args = self._run_function.__defaults__
         return def_args
     
-class EntryNode(ProcessNode):
-    def __init__(self, entry : str, description: str = "", create_input_output_attr: bool = True) -> None:
-        self._outputs = (entry, )
-        super().__init__(description, create_input_output_attr)
+# class EntryNode(ProcessNode):
+#     def __init__(self, entry : str, description: str = "", create_input_output_attr: bool = True) -> None:
+#         self._outputs = (entry, )
+#         super().__init__(description, create_input_output_attr)
 
-    def _run(self, **kwds) -> tuple:
-        return kwds[self._outputs[0]]
+#     def _run(self, **kwds) -> tuple:
+#         return kwds[self._outputs[0]]
         
-    # modified properties
-    @property
-    def outputs(self) -> tuple:
-        return self._outputs
+#     # modified properties
+#     @property
+#     def outputs(self) -> tuple:
+#         return self._outputs
     
-    @property
-    def inputs(self) -> tuple:
-        return self._outputs
+#     @property
+#     def inputs(self) -> tuple:
+#         return self._outputs
     
-    @property
-    def mandatory_inputs(self) -> tuple:
-        return self.inputs
+#     @property
+#     def mandatory_inputs(self) -> tuple:
+#         return self.inputs
     
-    @property
-    def non_mandatory_inputs(self) -> tuple:
-        return tuple()
+#     @property
+#     def non_mandatory_inputs(self) -> tuple:
+#         return tuple()
     
-    @property
-    def default_inputs(self) -> tuple:
-        return tuple()
+#     @property
+#     def default_inputs(self) -> tuple:
+#         return tuple()

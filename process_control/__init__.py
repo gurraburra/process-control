@@ -1,5 +1,5 @@
 from ._ProcessNode import ProcessNode
 from ._IterNode import IteratingNode
 from ._ProcessWorkflow import ProcessWorkflow
-from ._SimpleNodes import CustomNode, ValueNode, EntryNode
+from ._SimpleNodes import CustomNode, ValueNode
 
