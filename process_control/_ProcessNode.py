@@ -6,7 +6,7 @@ import numpy as np
 import copy
 from ._NodeMappings import NodeRunOutput, NodeMapping, NodeInputOutput
 
-class ProcessNode(ABC):
+class ProcessNode(object):
     """
     The ProcessNode class describes the interface of single processing unit, here called node.
     Nodes take inputs and produce outputs from those inputs.
@@ -283,11 +283,11 @@ class NodeOutput(NodeInputOutput):
         return data
     
     def __getattr__(self, attribute):
-        try:
-            return object.__getattribute__(self, attribute)
-        except:
-            # assume attribute is to be used for transfer
+        # assume attribute is to be used for transfer
+        if isinstance(attribute, str) and attribute.isidentifier():
             return NodeOutput(self.owner, self.name, self._attributes + (self.OutputAttribute(attribute), ))
+        else:
+            raise ValueError(f"Incorrect node output identifier: {attribute}.")
     
     def __call__(self, *args: warnings.Any, **kwds: warnings.Any) -> warnings.Any:
         return NodeOutput(self.owner, self.name, self._attributes + (self.OutputMethod(args, kwds), ))
@@ -301,9 +301,16 @@ class NodeOutput(NodeInputOutput):
     def __hash__(self) -> int:
         return hash((self.owner, self.name, self._attributes))
     
+    def copy(self) -> NodeOutput:
+        assert self.owner is None, f"Only allowed to copy unnassigned outputs."
+        return NodeOutput(self.owner, self.name, self._attributes)
+    
     def _checkBinaryOperand(self, other):
         if not isinstance(other, NodeOutput):
             raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
+        # check if blank output given, marked that name set to None
+        if self.name is None or other.name is None:
+            raise ValueError("Blank outputs are not valid in binary operations.")
     def __add__(self, other : object):
         self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__add__").output.output

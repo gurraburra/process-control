@@ -1,7 +1,65 @@
 from collections.abc import Iterable
 import copy
 
-class NodeDict:
+class NodeInputOutput(object):
+    def __init__(self, owner : object, name : str) -> None:
+        self.__owner = owner
+        self.__name = None
+        self.name = name
+        
+    @property
+    def owner(self) -> object:
+        return self.__owner
+    @owner.setter
+    def owner(self, new_owner : object):
+        # assert no previous owner
+        assert self.__owner is None, f"You are not allowed to change the owner of a previous defined input output."
+        self.__owner = new_owner
+    @property
+    def name(self) -> object:
+        return self.__name
+    @name.setter
+    def name(self, name) -> None:
+        assert self.__name is None, f"Cannot change name of input output that has already been set."
+        if name is not None:
+            assert isinstance(name, str), f"Inputs and outputs must be strings but a {type(name)} was given: {name}."
+            assert name.isidentifier(), f"Inputs and outputs must be valid python identifiers: {name}."
+            self.__name = name
+        
+    def __hash__(self) -> int:
+        return hash((self.owner, self.name))
+        
+    def __eq__(self, other):
+        """Overrides the default implementation"""
+        if isinstance(other, type(self)):
+            return self.owner == other.owner and self.name == other.name
+        return False
+        
+    def __str__(self):
+        return f"{self.owner}: {self.name}"
+    def __repr__(self):
+        return self.__str__()
+    
+    def __copy__(self):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        result.__dict__.update(self.__dict__)
+        return result
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            setattr(result, k, copy.deepcopy(v, memo))
+        return result
+    
+    def __getstate__(self):
+        return self.__dict__
+    def __setstate__(self, d):
+        self.__dict__ = d
+
+class NodeDict(object):
     def __init__(self, owner : object, keys : Iterable, iterable : Iterable) -> None:
         super().__init__()
         self.__owner = owner
@@ -36,7 +94,8 @@ class NodeDict:
         elif key == 'all':
             return self.__tuple
         else:
-            return object.__getattribute__(self, key)
+            raise AttributeError
+            # return object.__getattribute__(self, key)
         
     def __iter__(self):
         for data in self.values:
@@ -62,56 +121,6 @@ class NodeDict:
             setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    def __getstate__(self):
-        return self.__dict__
-    def __setstate__(self, d):
-        self.__dict__ = d
-    
-class NodeInputOutput:
-    def __init__(self, owner : object, name : str) -> None:
-        self.__owner = owner
-        self.__name = name
-    @property
-    def owner(self) -> object:
-        return self.__owner
-    @property
-    def name(self) -> object:
-        return self.__name
-    @name.setter
-    def name(self, val) -> None:
-        if self.name == "":
-            self.__name = val
-        else:
-            raise ValueError("Name already set.")
-        
-    def __hash__(self) -> int:
-        return hash((self.owner, self.name))
-        
-    def __eq__(self, other):
-        """Overrides the default implementation"""
-        if isinstance(other, type(self)):
-            return self.owner == other.owner and self.name == other.name
-        return False
-        
-    def __str__(self):
-        return f"{self.owner}: {self.name}"
-    def __repr__(self):
-        return self.__str__()
-    
-    def __copy__(self):
-        cls = self.__class__
-        result = cls.__new__(cls)
-        result.__dict__.update(self.__dict__)
-        return result
-
-    def __deepcopy__(self, memo):
-        cls = self.__class__
-        result = cls.__new__(cls)
-        memo[id(self)] = result
-        for k, v in self.__dict__.items():
-            setattr(result, k, copy.deepcopy(v, memo))
-        return result
-    
     def __getstate__(self):
         return self.__dict__
     def __setstate__(self, d):

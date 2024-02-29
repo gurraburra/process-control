@@ -1,7 +1,7 @@
 import re
 import numpy as np
 from ._ProcessNode import ProcessNode, _BinaryOperand, NodeOutput, NodeInput
-from ._NodeMappings import NodeRunOutput
+from ._NodeMappings import NodeRunOutput,  NodeMapping
 
 class ProcessWorkflow(ProcessNode):
     """
@@ -52,6 +52,7 @@ class ProcessWorkflow(ProcessNode):
         Nodes that will not be executed (runned).
     
     """
+
     def __init__(self, map : tuple[tuple], description : str = "", minimal_execution = True) -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
@@ -214,49 +215,72 @@ class ProcessWorkflow(ProcessNode):
             assert len(entry) == 2, f"Incorrect entry {i}"
             # unpack
             output, input = entry
-            # check for node = None, change to self
-            if isinstance(output, str):
-                # split string in output name and attribute parts -> this allows for manipulating input to workflow
-                output_parts = re.split('([^a-zA-Z_])', output.replace(" ",""), 1)
-                output = eval('NodeOutput(self, output_parts[0])' + ''.join(output_parts[1:]))
-            if isinstance(input, str):
-                input = NodeInput(self, input.replace(" ",""))
+            # # check for node = None, change to self
+            # if isinstance(output, str):
+            #     # split string in output name and attribute parts -> this allows for manipulating input to workflow
+            #     output_parts = re.split('([^a-zA-Z_])', output.replace(" ",""), 1)
+            #     output = eval('NodeOutput(self, output_parts[0])' + ''.join(output_parts[1:]))
+            # if isinstance(input, str):
+            #     input = NodeInput(self, input.replace(" ",""))
+            # assert output is NodeOutut
+            # assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
+            # # check if output is workflow output
+            # if output.owner is None:
+            #     # then update owner
+            #     output.owner = self
             # check if tuple (an one to many mapping)
             if isinstance(input, (tuple,list)):
                 assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
-                for in_ in input:
-                    assert isinstance(in_, NodeInput), f"Incorrect input defined in entry #{i}"
-                    if output.name == "":
-                        assert output.owner == self, f"Incorrect output defined in entry #{i}"
-                        outputs.append(NodeOutput(self, in_.name))
-                    else:
+                # check for blank output name, only allowed in output is this workflow, signal by owner is None
+                if output.name is None:
+                    assert output.owner is None, f"Expected a workflow output in entry #{i}"
+                    for in_ in input:
+                        assert isinstance(in_, NodeInput), f"Incorrect input defined in entry #{i}"
+                        assert in_.name is not None, f"Blank to blank mapping found in entry #{i}"
+                        # copy output so all attributes comes with
+                        out_ = output.copy()
+                        out_.name = in_.name
+                        # add to inputs outputs
+                        outputs.append(out_)
+                        inputs.append(in_)
+                else:
+                    for in_ in input:
+                        assert isinstance(in_, NodeInput), f"Incorrect input defined in entry #{i}"
+                        # check for blank input
+                        if in_.name is None:
+                            assert in_.owner is None, f"Incorrect input defined in entry #{i}"
+                            in_ = NodeInput(None, output.name)
                         outputs.append(output)
-                    inputs.append(in_)
-                continue
+                        inputs.append(in_)
             # check if tuple (an 'all' mapping)
-            if isinstance(output, (tuple,list)) and input.owner == self and input.name == "":
+            elif isinstance(output, (tuple,list)):
+                # check input is a blank workflow input
+                assert input.owner is None, f"Expected a workflow input in entry #{i}"  
+                assert input.name is None, f"Incorrect input defined in entry #{i}"
+
                 for out_ in output:
                     assert isinstance(out_, NodeOutput), f"Incorrect output defined in entry #{i}"
-                    inputs.append(NodeInput(self, out_.name))
+                    assert out_.name is not None, f"Blank to blank mapping found in entry #{i}"
+                    inputs.append(NodeInput(None, out_.name))
                     outputs.append(out_)
-                continue
-            # assert types
-            assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
-            assert isinstance(input, NodeInput), f"Incorrect input defined in entry #{i}"
-            # check for empty output or input strings
-            if output.owner == self and output.name == "" and input.name != "":
-                output.name = input.name
-            if input.owner == self and output.name != "" and input.name == "":
-                input.name = output.name
-            
-            # check for empty input output, not allowed unless mapped to workflow (handled above)
-            if output.name == "" or input.name == "":
-                raise ValueError(f"Incorrect defined entry #{i}.")
-            
-            # add to outputs inputs
-            outputs.append(output)
-            inputs.append(input)
-        # look for binary operand and add there dependencies
+            else:
+                # assert types
+                assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
+                assert isinstance(input, NodeInput), f"Incorrect input defined in entry #{i}"
+                # check for empty output or input strings
+                if output.owner is None and output.name is None and input.name is not None:
+                    output.name = input.name
+                if input.owner is None and input.name is None and output.name is not None:
+                    input.name = output.name
+                
+                # check for empty input output, not allowed unless mapped to workflow (handled above)
+                if output.name is None or input.name is None:
+                    raise ValueError(f"Incorrect defined entry #{i}.")
+                
+                # add to outputs inputs
+                outputs.append(output)
+                inputs.append(input)
+        # look for binary operand and add there dependencies 
         def addOutputsInputsBinaryOperand(binary_output):
             # check binary_output realy is binary
             if isinstance(binary_output.owner, _BinaryOperand):
@@ -270,6 +294,13 @@ class ProcessWorkflow(ProcessNode):
                 addOutputsInputsBinaryOperand(binary_output.owner.input_2)
         for output in outputs:
             addOutputsInputsBinaryOperand(output)
+
+        # update owner of workflow inputs outputs, marked with owner = None
+        for output, input in zip(outputs, inputs):
+            if output.owner is None:
+                output.owner = self
+            if input.owner is None:
+                input.owner = self
         
         # add reference to nodes
         self._nodes = tuple(set(filter(lambda node : node != self, map(lambda input_output : input_output.owner, outputs + inputs))))
@@ -442,3 +473,29 @@ class ProcessWorkflow(ProcessNode):
         # this node has already been looked at and reoccured -> hence cycle dependencies
         if order == -2:
             raise ValueError(f"Cycle dependency found for node {node_idx}")
+        
+    # input output to workflow to be used during defintion of the workflow
+    class WfMapping(NodeMapping):
+        def __init__(self, is_input: bool) -> None:
+            super().__init__(None, [], [], is_input)
+            self._is_input = is_input
+
+        def __getattr__(self, key):
+            if isinstance(key, str) and key.isidentifier():
+                # check for blank input output, marked with '_'
+                if key == "_":
+                    name = None
+                else:
+                    name = key
+                if self._is_input:
+                    return NodeInput(None, name)
+                else:
+                    return NodeOutput(None, name)
+            else:
+                raise ValueError(f"Incorrect workflow input/output identifier: {key}.")
+        def __str__(self) -> str:
+            return f"Workflow {self._input_output_str}"
+    
+    input = WfMapping(True)
+    output = WfMapping(False)
+    
