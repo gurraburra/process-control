@@ -476,9 +476,9 @@ class ProcessWorkflow(ProcessNode):
         
     # input output to workflow to be used during defintion of the workflow
     class WfMapping(NodeMapping):
-        def __init__(self, is_input: bool) -> None:
-            super().__init__(None, [], [], is_input)
-            self._is_input = is_input
+        def __init__(self, is_wf_input: bool) -> None:
+            super().__init__(None, [], [], is_wf_input)
+            self._is_wf_input = is_wf_input
 
         def __getattr__(self, key):
             if isinstance(key, str) and key.isidentifier():
@@ -487,10 +487,14 @@ class ProcessWorkflow(ProcessNode):
                     name = None
                 else:
                     name = key
-                if self._is_input:
-                    return NodeInput(None, name)
-                else:
+                if self._is_wf_input:
+                    # an input to the workflow is seen internally as an output
+                    # since data comes from the 'outside' and is immediately transfered to internal nodes
                     return NodeOutput(None, name)
+                else:
+                    # an output of the workflow is seen internally as an input
+                    # since data comes from the internal nodes before being transfered to the 'ouside'
+                    return NodeInput(None, name)
             else:
                 raise ValueError(f"Incorrect workflow input/output identifier: {key}.")
         def __str__(self) -> str:
