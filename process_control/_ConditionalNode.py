@@ -1,6 +1,6 @@
 from ._ProcessNode import ProcessNode, NodeInput, NodeOutput
 
-class CondtionalNode(ProcessNode):
+class ConditionalNode(ProcessNode):
     """
     A conditioanl node will only run internal node if condition is True.
 
