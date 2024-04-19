@@ -326,6 +326,21 @@ class NodeOutput(NodeInputOutput):
     def __div__(self, other : object):
         self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__div__").output.output
+    def __lt__(self, other : object):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__lt__").output.output
+    def __le__(self, other : object):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__le__").output.output
+    def __gt__(self, other : object):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__gt__").output.output
+    def __ge__(self, other : object):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__ge__").output.output
+    def __eq__(self, other : object):
+        self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__eq__").output.output
     
     class AbstractAttribute(ABC):
         @abstractmethod
