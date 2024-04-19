@@ -71,8 +71,6 @@ class ProcessWorkflow(ProcessNode):
         # check nodes intialized
         if not self._nodes_init:
             raise RuntimeError(f"Nodes of workflow has not been initalized.")
-        # add non mandatory inputs
-        self._addNonMandatoryInputs(input_dict)
         # create input data transfer
         input_data_transfer = {node : {} for node in self._internal_nodes}
         # tranfer this workflow inputs to its internal nodes
@@ -87,11 +85,6 @@ class ProcessWorkflow(ProcessNode):
         # return workflow inputs from its internal nodes
         return tuple(input_data_transfer[self][output] for output in self.outputs)
 
-    # run helper functions
-    def _addNonMandatoryInputs(self, input_dict : dict) -> None:
-        for key, value in zip(self.non_mandatory_inputs, self.default_inputs):
-            if key not in input_dict:
-                input_dict[key] = value
 
     def _executeNodes(self, node_idxs : tuple[int], input_data_transfer : dict, ignore_cache : bool, verbose : bool):
         for node_idx in node_idxs:

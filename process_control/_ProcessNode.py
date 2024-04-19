@@ -150,6 +150,8 @@ class ProcessNode(object):
         for input_str in input_dict.keys():
             if input_str not in self.inputs:
                 raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
+        # add non mandatory inputs
+        self._addNonMandatoryInputs(input_dict)
             
         # compute output
         # catch warnings 
@@ -191,6 +193,12 @@ class ProcessNode(object):
 
         # return output
         return output
+    
+    # run helper functions
+    def _addNonMandatoryInputs(self, input_dict : dict) -> None:
+        for key, value in zip(self.non_mandatory_inputs, self.default_inputs):
+            if key not in input_dict:
+                input_dict[key] = value
     
     def _inputEquality(self, dict_ : dict) -> bool:
         if self._input_cache is not None:
