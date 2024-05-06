@@ -4,6 +4,8 @@ import numpy as np
 from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
+import threading
+import sys
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -88,7 +90,8 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to update tqdm process bar
-            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+            # pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+            pbar_proc = threading.Thread(target=self._pbarListener, args=(pbar_queue, verbose, nr_iter, f"{self} (parallel - {self.nr_processes})"))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
             # start processes
@@ -101,18 +104,18 @@ class IteratingNode(ProcessNode):
             [p[0].close() for p in processes]
             # terminate pbar_process by sending None to queue
             pbar_queue.put(None)
+            # join pbar process
+            pbar_proc.join()
             # close queue and wait for backround thread to join
             pbar_queue.close()
             pbar_queue.join_thread()
-            # join pbar process
-            pbar_proc.join()
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
         else:
             f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
             if verbose:
-                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
+                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)", file=sys.stderr))
             else:
                 mapped = map(f_single_iteration, zip(*arg_values_list))
             return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
@@ -121,11 +124,12 @@ class IteratingNode(ProcessNode):
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     
     @staticmethod
-    def _pbarListener(pbar_queue, nr_iter, desc, verbose):
+    def _pbarListener(pbar_queue, verbose, nr_iter, desc):
         if verbose:
-            pbar = tqdm(total = nr_iter, desc = desc)
+            pbar = tqdm(total = nr_iter, desc = desc, file=sys.stderr)
             for nr in iter(pbar_queue.get, None):
                 pbar.update(nr)
+            pbar.close()
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
