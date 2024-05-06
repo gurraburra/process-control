@@ -30,11 +30,12 @@ class IteratingNode(ProcessNode):
         outputs:
             the outputs from the iterating node are appended to an iteration list, hence they have '_list' appended to their name
     """
-    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], parallel_processing : bool = False, nr_processes : int = -1, description : str = "") -> None:
+    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", parallel_processing : bool = False, nr_processes : int = -1, description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
         self._iterating_node = iterating_node
+        self._iterating_name = iterating_name
         self.parallel_processing = parallel_processing
         self.nr_processes = nr_processes
         
@@ -193,7 +194,7 @@ class IteratingNode(ProcessNode):
         return nr_iter
 
     def _listName(self, name : str) -> str:
-        return f"{name}_list"
+        return f"{self._iterating_name}Iter_{name}"
 
     # new properties
     @property
