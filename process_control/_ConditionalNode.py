@@ -6,22 +6,23 @@ class ConditionalNode(ProcessNode):
 
     Argument:
     ---------
-    iterating_node: 
-        the node to be iterated
-    iterating_inputs: 
-        the inputs of the iterating_node to be iterated over
-    parallel_processing: 
-        whether not to execute the iteration in parallel processes
-    nr_processes: 
-        number of process if parallel_processing is True, negative number signals to use the maxmimum number of available cores
-    
+    conditional_node: 
+        the node to be conditional run
+    conditional_input: 
+        the name of the input to decide if of the conditional_node should be run
+    default_condition: 
+        default condition if the conditional input should not be mandatory
+    input_output_map: 
+        if conditional_node should not be runned, an addtional map can be given to map input to output
+        additionaly, any object can be mapped to an output
+
     Attributes:
         inputs: 
             the inputs to which to be iterated over has '_list' appended to their name
         outputs:
             the outputs from the iterating node are appended to an iteration list, hence they have '_list' appended to their name
     """
-    def __init__(self, conditional_node : ProcessNode, conditional_input : str, default_condition : bool = None, output_map_negative_condition : tuple[tuple[NodeInput, NodeOutput]] = None, description : str = "") -> None:
+    def __init__(self, conditional_node : ProcessNode, conditional_input : str, default_condition : bool = None, input_output_map : tuple[tuple[NodeInput, NodeOutput]] = None, description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
@@ -43,15 +44,17 @@ class ConditionalNode(ProcessNode):
         
         
         # check output negative condition
-        output_map_neg = [None,]*len(self._outputs)
-        if output_map_negative_condition is not None:
-            for (input, output) in output_map_negative_condition:
-                assert isinstance(input, NodeInput), f"Negative condition can only map input to output of the conditional node."
-                assert isinstance(output, NodeOutput), f"Negative condition can only map input to output of the conditional node."
-                assert input.owner == conditional_node, f"Negative condition can only map input to output of the conditional node."
-                assert output.owner == conditional_node, f"Negative condition can only map input to output of the conditional node."
-            output_map_neg[self._outputs.index(output.name)] = input
-        self._output_map_neg = tuple(output_map_neg)
+        in_out_map = [None]*len(self._outputs)
+        if input_output_map is not None:
+            for (input, output) in input_output_map:
+                # check output
+                assert isinstance(output, NodeOutput) and output.owner == conditional_node, f"Can only map a value to a NodeOutput of the conditional node."
+                # check input
+                if isinstance(input, NodeInput):
+                    assert input.owner == conditional_node, f"Can only map a NodeInput of the conditional node."
+            # update map
+            in_out_map[self._outputs.index(output.name)] = input
+        self._in_out_map = tuple(in_out_map)
         
         # create attributes
         self._createInputOutputAttributes()
@@ -66,7 +69,7 @@ class ConditionalNode(ProcessNode):
             conditional_node_input.pop(self._conditional_input)
             return self._conditional_node.run(**conditional_node_input).values
         else:
-            return tuple(input_dict[out.name] if isinstance(out, NodeInput) else out for out in self._output_map_neg)
+            return tuple(input_dict[input.name] if isinstance(input, NodeInput) else input for input in self._in_out_map)
 
     # modified properties
     @property
