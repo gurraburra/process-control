@@ -5,6 +5,7 @@ import inspect
 import numpy as np
 import copy
 from ._NodeMappings import NodeRunOutput, NodeMapping, NodeInputOutput
+import operator
 
 class ProcessNode(object):
     """
@@ -122,6 +123,10 @@ class ProcessNode(object):
             raise RuntimeError(f"Node has no cached data.")
         else:
             return self._output_cache
+        
+    def resetCache(self) -> None:
+        self._input_cache = None
+        self._output_cache = None
 
     @property 
     @abstractmethod
@@ -211,27 +216,25 @@ class ProcessNode(object):
     def _copyInput(self, dict_ : dict, verbose : bool):
         self._input_cache = {}
         for k,v in dict_.items():
-            try:
-                self._input_cache[k] = copy.deepcopy(v)
-            except:
-                if verbose:
-                    print(f"Could not copy input '{k}' of node {self}, copying only reference.")
-                self._input_cache[k] = v
+            self._input_cache[k] = v
+            # try:
+            #     self._input_cache[k] = copy.deepcopy(v)
+            # except:
+            #     if verbose:
+            #         print(f"Could not copy input '{k}' of node {self}, copying only reference.")
+            #     self._input_cache[k] = v
 
     def _copyOutput(self, output : tuple, verbose : bool):
         output_cache = [None]*len(output)
         for i,v in enumerate(output):
-            try:
-                output_cache[i] = copy.deepcopy(v)
-            except:
-                if verbose:
-                    print(f"Could not copy output '{self.outputs[i]}' of node {self}, copying only reference.")
-                output_cache[i] = v
+            output_cache[i] = v
+            # try:
+            #     output_cache[i] = copy.deepcopy(v)
+            # except:
+            #     if verbose:
+            #         print(f"Could not copy output '{self.outputs[i]}' of node {self}, copying only reference.")
+            #     output_cache[i] = v
         self._output_cache = NodeRunOutput(self, self.outputs, output_cache)
-        
-    def resetCache(self) -> None:
-        self._input_cache = None
-        self._output_cache = None
 
     def _createInputOutputAttributes(self) -> None:
         self.input = NodeMapping(self, self.inputs, tuple(NodeInput(self, input) for input in self.inputs), True)
@@ -400,4 +403,4 @@ class _BinaryOperand(ProcessNode):
         self.input_2 = input_2
 
     def _run(self, input_1, input_2) -> tuple:
-        return getattr(input_1, self.operand)(input_2)
+        return getattr(operator, self.operand)(input_1, input_2)
