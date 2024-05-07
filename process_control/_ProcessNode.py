@@ -187,7 +187,7 @@ class ProcessNode(object):
             output_tuple = output_tuple
         # check output contains all expected outputs
         if len(output_tuple) != len(self.outputs):
-            raise RuntimeError(f"Node produced {len(output_tuple)} outputs, however expected {len(self.outputs)}.")
+            raise RuntimeError(f"Node {self} produced {len(output_tuple)} outputs, however expected {len(self.outputs)}.")
         
         # convert to node output
         output = NodeRunOutput(self, self.outputs, output_tuple)
