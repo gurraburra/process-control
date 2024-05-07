@@ -59,12 +59,22 @@ class NodeInputOutput(object):
     def __setstate__(self, d):
         self.__dict__ = d
 
+class TupleSubtract(tuple):
+    def __new__(cls, iterable: Iterable = ...):
+        return super().__new__(cls, iterable)
+    
+    def __sub__(self, obj : tuple):
+        if isinstance(obj, Iterable):
+            return TupleSubtract(tuple(item for item in self if item not in obj))
+        else:
+            return TupleSubtract(tuple(item for item in self if item is not obj))
+    
 class NodeDict(object):
     def __init__(self, owner : object, keys : Iterable, iterable : Iterable) -> None:
         super().__init__()
         self.__owner = owner
         self.__keys = keys
-        self.__tuple = tuple(iterable)
+        self.__tuple = TupleSubtract(iterable)
 
     @property
     def _owner(self) -> object:
@@ -88,7 +98,7 @@ class NodeDict(object):
         if isinstance(key, int):
             return self.__tuple[key]
         elif isinstance(key, (tuple,list)):
-            return tuple(self.__getattr__(k) for k in key)
+            return TupleSubtract(self.__getattr__(k) for k in key)
         elif key in self.__keys:
             return self.__tuple[self.__keys.index(key)]
         elif key == 'all':
