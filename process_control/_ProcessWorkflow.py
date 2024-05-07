@@ -290,11 +290,13 @@ class ProcessWorkflow(ProcessNode):
                 # handle input 1
                 outputs.append(binary_output.owner.input_1)
                 inputs.append(binary_output.owner.input.input_1)
-                addOutputsInputsBinaryOperand(binary_output.owner.input_1)
                 # handle input 2
                 outputs.append(binary_output.owner.input_2)
                 inputs.append(binary_output.owner.input.input_2)
-                addOutputsInputsBinaryOperand(binary_output.owner.input_2)
+                # don't need the two lines below since appending new inputs 
+                # to the outputs list will make sure they are handled later
+                # addOutputsInputsBinaryOperand(binary_output.owner.input_1)
+                # addOutputsInputsBinaryOperand(binary_output.owner.input_2)
         for output in outputs:
             addOutputsInputsBinaryOperand(output)
 
@@ -505,4 +507,20 @@ class ProcessWorkflow(ProcessNode):
     
     input = WfMapping(True)
     output = WfMapping(False)
+
+    def cacheNodesData(self, val : bool) -> None:
+        for n in self.nodes:
+            n.cache_data = bool(val)
+
+    def cacheNodesInput(self, val : bool) -> None:
+        for n in self.nodes:
+            n.cache_input = bool(val)
+
+    def cacheNodesOutput(self, val : bool) -> None:
+        for n in self.nodes:
+            n.cache_output = bool(val)
+        
+    def resetNodesCache(self) -> None:
+        for n in self.nodes:
+            n.resetCache()
     
