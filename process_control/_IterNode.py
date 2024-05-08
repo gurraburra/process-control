@@ -125,7 +125,14 @@ class IteratingNode(ProcessNode):
                     if not pbar_queue.empty():
                         pbar.update(pbar_queue.get_nowait())
         # return value
-        return [p.recv() for p in pipes]
+        print("data ready")
+        result = []
+        for p in pipes:
+            if p.poll():
+                result.appedn(p.recv())
+            else:
+                print("nothing to read...")
+        return result
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
