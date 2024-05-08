@@ -4,7 +4,9 @@ import numpy as np
 from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
-import time
+import sys
+import pickle
+from threading import Thread
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -92,11 +94,20 @@ class IteratingNode(ProcessNode):
             pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            # threads
+            threads = [None] * len(processes)
+            results = [None] * len(processes)
+
+            for i in range(len(threads)):
+                threads[i] = Thread(target=self._pipeListener, args=(processes[i][0], results, i))
+                threads[i].start()
             # start processes
             pbar_proc.start()
             # [p[1].start() for p in processes]
             # get result
-            process_results = [p[0].recv() for p in processes]
+            for i in range(len(threads)):
+                threads[i].join()
+            process_results = results #[p[0].recv() for p in processes]
             # wait for them to finnish
             [p[1].join() for p in processes]
             [p[0].close() for p in processes]
@@ -120,7 +131,10 @@ class IteratingNode(ProcessNode):
 
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
-    
+    @staticmethod
+    def _pipeListener(pipe, results, i ):
+        results[i] = pipe.recv()
+
     @staticmethod
     def _pbarListener(pbar_queue, nr_iter, desc, verbose):
         if verbose:
@@ -149,9 +163,11 @@ class IteratingNode(ProcessNode):
                 pbar_queue.put(nr)
                 nr = 0
         pbar_queue.put(nr)
-        pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
-
-        time.sleep(5)
+        res = tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs ))
+        # print(f"Size of payload is: {sys.getsizeof(res)/1024} KiB")
+        # pkl_res = pickle.dumps(res)
+        # print(f"Size of pickled payload is: {sys.getsizeof(pkl_res)/1024} KiB")
+        pipe.send(res)
         # pipe.send(outputs)
         pipe.close()
 
