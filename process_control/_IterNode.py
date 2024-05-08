@@ -148,7 +148,7 @@ class IteratingNode(ProcessNode):
         pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
-        pipe.close()
+        # pipe.close()
 
     @staticmethod
     def _iterArgs(nr_iter, nr_chunks, iterable_list):
