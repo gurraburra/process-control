@@ -129,7 +129,7 @@ class IteratingNode(ProcessNode):
         result = []
         for p in pipes:
             if p.poll():
-                result.appedn(p.recv())
+                result.append(p.recv())
             else:
                 print("nothing to read...")
         return result
