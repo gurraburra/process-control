@@ -93,7 +93,7 @@ class IteratingNode(ProcessNode):
             # pipes and process to execute
             pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
             # start processes
-            [proc.start() for proc in processes]
+            # [proc.start() for proc in processes]
             # wait for result in pipes
             process_results = self._waitResultSingleThread(pipes, pbar_queue, verbose, nr_iter, f"{self} (parallel - {self.nr_processes})")
             # join processes and close pipes
@@ -138,6 +138,7 @@ class IteratingNode(ProcessNode):
     def _createProcessAndPipe(target, *args):
         in_pipe, out_pipe = mp.Pipe(duplex = False)
         p = mp.Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
+        p.start()
         out_pipe.close()
         return in_pipe, p
 
@@ -157,7 +158,7 @@ class IteratingNode(ProcessNode):
         # pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
         pipe.send(0)
-        # pipe.close()
+        pipe.close()
 
     @staticmethod
     def _iterArgs(nr_iter, nr_chunks, iterable_list):
