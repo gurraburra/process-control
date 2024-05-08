@@ -4,6 +4,7 @@ import numpy as np
 from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
+import time
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -149,6 +150,8 @@ class IteratingNode(ProcessNode):
                 nr = 0
         pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
+
+        time.sleep(5)
         # pipe.send(outputs)
         pipe.close()
 
