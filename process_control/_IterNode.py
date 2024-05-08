@@ -1,12 +1,9 @@
-from tqdm.auto import tqdm
+from multiprocess import cpu_count, Process, Pipe, Queue
+from tqdm import tqdm
 import numpy as np
 from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
-import threading
-import sys
-import multiprocess as mp
-# mp = mp.get_context('spawn')
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -89,61 +86,55 @@ class IteratingNode(ProcessNode):
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
             # queue to update tqdm process bar
-            pbar_queue = mp.Queue()
-            # pipes and process to execute
-            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
+            pbar_queue = Queue()
+            # process to update tqdm process bar
+            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+            # process to execute
+            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
             # start processes
-            # [proc.start() for proc in processes]
-            # wait for result in pipes
-            process_results = self._waitResultSingleThread(pipes, pbar_queue, verbose, nr_iter, f"{self} (parallel - {self.nr_processes})")
-            # join processes and close pipes
-            [proc.join() for proc in processes]
-            [pipe.close() for pipe in pipes]
+            pbar_proc.start()
+            [p[1].start() for p in processes]
+            # get result
+            process_results = [p[0].recv() for p in processes]
+            # wait for them to finnish
+            [p[1].join() for p in processes]
+            [p[0].close() for p in processes]
+            # terminate pbar_process by sending None to queue
+            pbar_queue.put(None)
             # close queue and wait for backround thread to join
             pbar_queue.close()
             pbar_queue.join_thread()
+            # join pbar process
+            pbar_proc.join()
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
         else:
             f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
             if verbose:
-                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)", file=sys.stderr))
+                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
                 mapped = map(f_single_iteration, zip(*arg_values_list))
             return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
 
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
-
-    def _waitResultSingleThread(self, pipes : list[mp.Pipe], pbar_queue : mp.Queue, verbose, nr_iter, desc):
-        # if verbose -> show progress bar
+    
+    @staticmethod
+    def _pbarListener(pbar_queue, nr_iter, desc, verbose):
         if verbose:
-            with tqdm(total = nr_iter, desc = desc, file=sys.stderr) as pbar:
-                # continue update pbar until all result in pipes are done and pbar queue is empty
-                while not ( all([p.poll() for p in pipes]) and pbar_queue.empty() ):
-                    if not pbar_queue.empty():
-                        pbar.update(pbar_queue.get_nowait())
-        # return value
-        print("data ready")
-        result = []
-        for p in pipes:
-            if p.poll():
-                result.append(p.recv())
-            else:
-                print("nothing to read...")
-        return result
+            pbar = tqdm(total = nr_iter, desc = desc)
+            for nr in iter(pbar_queue.get, None):
+                pbar.update(nr)
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
-        in_pipe, out_pipe = mp.Pipe(duplex = False)
-        p = mp.Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
-        p.start()
-        # out_pipe.close()
+        in_pipe, out_pipe = Pipe(duplex = False)
+        p = Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
         return in_pipe, p
 
     @staticmethod
-    def _iterNode(iterating_node : ProcessNode, pbar_queue : mp.Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : mp.Pipe) -> list:
+    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : Pipe) -> list:
         outputs = []
         nr_iter, iterable_list = arg_values
         update_every = int(nr_iter / 100)
@@ -157,7 +148,7 @@ class IteratingNode(ProcessNode):
         pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
-        # pipe.close()
+        pipe.close()
 
     @staticmethod
     def _iterArgs(nr_iter, nr_chunks, iterable_list):
@@ -230,7 +221,7 @@ class IteratingNode(ProcessNode):
     def nr_processes(self, val : int) -> None:
         if val <= -1:
             # raise ValueError("Number of threads needs to be larger than 0.")
-            self._nr_processes = mp.cpu_count()
+            self._nr_processes = cpu_count()
         else:
             self._nr_processes = int(val)
 
