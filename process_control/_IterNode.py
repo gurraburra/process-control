@@ -139,7 +139,7 @@ class IteratingNode(ProcessNode):
         in_pipe, out_pipe = mp.Pipe(duplex = False)
         p = mp.Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
         p.start()
-        out_pipe.close()
+        # out_pipe.close()
         return in_pipe, p
 
     @staticmethod
