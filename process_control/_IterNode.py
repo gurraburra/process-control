@@ -91,7 +91,7 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = mp.Queue()
             # pipes and process to execute
-            pipes, processes, child_pipes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
+            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
             # start processes
             [proc.start() for proc in processes]
             # wait for result in pipes
@@ -131,7 +131,8 @@ class IteratingNode(ProcessNode):
     def _createProcessAndPipe(target, *args):
         in_pipe, out_pipe = mp.Pipe(duplex = False)
         p = mp.Process(target = target, args = args, kwargs = {"pipe" : out_pipe})
-        return in_pipe, p, out_pipe
+        out_pipe.close()
+        return in_pipe, p
 
     @staticmethod
     def _iterNode(iterating_node : ProcessNode, pbar_queue : mp.Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : mp.Pipe) -> list:
@@ -148,7 +149,7 @@ class IteratingNode(ProcessNode):
         pbar_queue.put(nr)
         pipe.send(tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs )))
         # pipe.send(outputs)
-        # pipe.close()
+        pipe.close()
 
     @staticmethod
     def _iterArgs(nr_iter, nr_chunks, iterable_list):
