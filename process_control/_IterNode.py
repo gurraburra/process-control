@@ -96,8 +96,7 @@ class IteratingNode(ProcessNode):
             [proc.start() for proc in processes]
             # wait for result in pipes
             process_results = self._waitResultSingleThread(pipes, pbar_queue, verbose, nr_iter, f"{self} (parallel - {self.nr_processes})")
-            # process_results = [p[0].recv() for p in processes]
-            # wait for them to finnish
+            # join processes and close pipes
             [proc.join() for proc in processes]
             [pipe.close() for pipe in pipes]
             # close queue and wait for backround thread to join
