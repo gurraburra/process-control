@@ -1,5 +1,5 @@
 from multiprocess import cpu_count, Process, Pipe, Queue
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import numpy as np
 from itertools import chain
 from collections.abc import Iterable
