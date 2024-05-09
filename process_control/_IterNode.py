@@ -143,8 +143,12 @@ class IteratingNode(ProcessNode):
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     @staticmethod
     def _pipeRecv(pipe, results, i ):
-        results[i] = pipe.recv()
-        pipe.close()
+        try:
+            results[i] = pipe.recv()
+        except EOFError:
+            pass
+        finally:
+            pipe.close()
 
     @staticmethod
     def _pbarUpdate(pbar_queue, nr_iter, desc, verbose):
