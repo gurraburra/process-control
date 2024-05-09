@@ -142,6 +142,7 @@ class IteratingNode(ProcessNode):
             pbar = tqdm(total = nr_iter, desc = desc)
             for nr in iter(pbar_queue.get, None):
                 pbar.update(nr)
+            pbar.close()
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
