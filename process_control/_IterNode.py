@@ -140,9 +140,9 @@ class IteratingNode(ProcessNode):
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     @staticmethod
-    def _pipeRecv(pipe, results, i ):
+    def _pipeRecv(pipe, results, idx):
         try:
-            results[i] = pipe.recv()
+            results[idx] = pipe.recv()
         except EOFError:
             pass
         finally:
