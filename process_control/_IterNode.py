@@ -4,10 +4,7 @@ import numpy as np
 from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
-import sys
-import pickle
 from threading import Thread
-import os 
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
