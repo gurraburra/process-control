@@ -114,11 +114,11 @@ class IteratingNode(ProcessNode):
             [p[0].close() for p in processes]
             # terminate pbar_process by sending None to queue
             pbar_queue.put(None)
+            # join pbar process
+            pbar_proc.join()
             # close queue and wait for backround thread to join
             pbar_queue.close()
             pbar_queue.join_thread()
-            # join pbar process
-            pbar_proc.join()
             # combine process_results
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
