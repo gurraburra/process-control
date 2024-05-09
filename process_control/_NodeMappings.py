@@ -73,7 +73,7 @@ class NodeDict(object):
     def __init__(self, owner : object, keys : Iterable, iterable : Iterable) -> None:
         super().__init__()
         self.__owner = owner
-        self.__keys = keys
+        self.__keys = TupleSubtract(keys)
         self.__tuple = TupleSubtract(iterable)
 
     @property
