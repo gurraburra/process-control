@@ -91,8 +91,6 @@ class IteratingNode(ProcessNode):
         if self.parallel_processing and nr_iter > 1:
             # queue to update tqdm process bar
             pbar_queue = Queue()
-            # process to update tqdm process bar
-            pbar_proc = Process(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # process to execute
             processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
             # threads
@@ -102,6 +100,8 @@ class IteratingNode(ProcessNode):
             for i in range(len(threads)):
                 threads[i] = Thread(target=self._pipeListener, args=(processes[i][0], results, i))
                 threads[i].start()
+            # process to update tqdm process bar
+            pbar_proc = Thread(target=self._pbarListener, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
             # start processes
             pbar_proc.start()
             # [p[1].start() for p in processes]
