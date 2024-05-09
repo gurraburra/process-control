@@ -164,12 +164,20 @@ class IteratingNode(ProcessNode):
                 pbar_queue.put(nr)
                 nr = 0
         pbar_queue.put(nr)
-        res = tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs ))
+        res = []
+        for i, output in enumerate(zip( *outputs )):
+            try:
+                res.append(np.array(output))
+            except:
+                print("error output ", i)
+                print(output)
+                raise
+        # res = tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs ))
         # print(f"Size of payload is: {sys.getsizeof(res)/1024} KiB")
         # pkl_res = pickle.dumps(res)
         # print(f"Size of pickled payload is: {sys.getsizeof(pkl_res)/1024} KiB")
         print(os.getpid(), "sending")
-        pipe.send(res)
+        pipe.send(tuple(res))
         print(os.getpid(), "all sent")
         # pipe.send(outputs)
         pipe.close()
