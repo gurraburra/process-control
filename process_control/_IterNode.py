@@ -110,13 +110,14 @@ class IteratingNode(ProcessNode):
             # start processes
             pbar_thread.start()
             # wait for recv result
-            for i in range(len(recv_threads)):
-                recv_threads[i].join()
+            for recv_thread in recv_threads:
+                recv_thread.join()
             # wait for processes
-            [p.join() for p in processes]
+            for process in processes:
+                process.join()
             # terminate pbar_thread by sending None to queue
             pbar_queue.put(None)
-            # join pbar thread
+            # wait for pbar thread
             pbar_thread.join()
             # close queue and wait for backround thread to join
             pbar_queue.close()
