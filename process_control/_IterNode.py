@@ -7,6 +7,7 @@ from ._ProcessNode import ProcessNode
 import sys
 import pickle
 from threading import Thread
+import os 
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -167,7 +168,9 @@ class IteratingNode(ProcessNode):
         # print(f"Size of payload is: {sys.getsizeof(res)/1024} KiB")
         # pkl_res = pickle.dumps(res)
         # print(f"Size of pickled payload is: {sys.getsizeof(pkl_res)/1024} KiB")
+        print(os.getpid(), "sending")
         pipe.send(res)
+        print(os.getpid(), "all sent")
         # pipe.send(outputs)
         pipe.close()
 
