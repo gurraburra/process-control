@@ -34,7 +34,7 @@ class IteratingNode(ProcessNode):
         outputs:
             the outputs from the iterating node are appended to an iteration list, hence they have '_list' appended to their name
     """
-    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", parallel_processing : bool = False, nr_processes : int = -1, description : str = "") -> None:
+    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", exclude_outputs : tuple[str] = tuple(), parallel_processing : bool = False, nr_processes : int = -1, description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
@@ -64,8 +64,18 @@ class IteratingNode(ProcessNode):
         self._mandatory_inputs = tuple(mandatory_inputs)
         self._non_mandatory_inputs = tuple(non_mandatory_inputs)
         self._default_inputs = tuple(default_inputs)
+
+        # exclude outputs
+        if isinstance(exclude_outputs, str):
+            exclude_outputs = (exclude_outputs,)
+        # check all exclude outputs is in interating node
+        for exclude in exclude_outputs:
+            if not exclude in iterating_node.outputs:
+                raise ValueError(f"Output {exclude} to exclude does not exist in node: {iterating_node}.")
+        self.exclude_outputs = exclude_outputs
+
         # create outputs tuple and ad _list to all names
-        self._outputs = tuple(self._listName(output) for output in iterating_node.outputs)
+        self._outputs = tuple(self._listName(output) for output in iterating_node.outputs if output not in self.exclude_outputs)
         # create attributes
         self._createInputOutputAttributes()
 
@@ -92,7 +102,7 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
-            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
+            processes = [self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values, self.exclude_outputs,) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]
             # threads
             threads = [None] * len(processes)
             results = [None] * len(processes)
@@ -123,7 +133,10 @@ class IteratingNode(ProcessNode):
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *process_results ))
         else:
-            f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
+            def f_single_iteration(args):
+                output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)})
+                return output[output.keys - self.exclude_outputs]
+            # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
             if verbose:
                 mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
@@ -153,33 +166,38 @@ class IteratingNode(ProcessNode):
         return in_pipe, p
 
     @staticmethod
-    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, pipe : Pipe) -> list:
+    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, exclude_outputs : tuple[str], pipe : Pipe) -> list:
         outputs = []
         nr_iter, iterable_list = arg_values
         update_every = int(nr_iter / 100)
         nr = 0
+        out_keys = iterating_node.output.keys - exclude_outputs
         for args in zip(*iterable_list):
-            outputs.append(iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)}).values)
+            output = iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)})
+            outputs.append(output[out_keys])
             nr += 1
             if nr > update_every:
                 pbar_queue.put(nr)
                 nr = 0
         pbar_queue.put(nr)
-        res = []
+        pivot_outputs = []
         for i, output in enumerate(zip( *outputs )):
-            try:
-                res.append(np.array(output))
-            except:
-                print("error output ", i)
-                print(output)
-                raise
+            if is_numeric(output[0]):
+                try:
+                    pivot_outputs.append(np.array(output))
+                except:
+                    raise RuntimeError(f"Unable able to concatenate numeric output: {out_keys[i]} from node {iterating_node}.")
+            else:
+                pivot_outputs.append(output)
+                raise RuntimeWarning(f"Output: {out_keys[i]} from node {iterating_node} is not numeric. " \
+                                        + "Transfering data betwen processes can be slow.")
         # res = tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *outputs ))
         # print(f"Size of payload is: {sys.getsizeof(res)/1024} KiB")
         # pkl_res = pickle.dumps(res)
         # print(f"Size of pickled payload is: {sys.getsizeof(pkl_res)/1024} KiB")
-        print(os.getpid(), "sending")
-        pipe.send(tuple(res))
-        print(os.getpid(), "all sent")
+        # print(os.getpid(), "sending")
+        pipe.send(tuple(pivot_outputs))
+        # print(os.getpid(), "all sent")
         # pipe.send(outputs)
         pipe.close()
 
