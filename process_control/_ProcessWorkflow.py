@@ -78,7 +78,7 @@ class ProcessWorkflow(ProcessNode):
         self._transferNodeOutputs(NodeRunOutput(self, tuple(input_dict.keys()), tuple(input_dict.values())), input_data_transfer)
         
         # loop through all execution order
-        for order in range(1, max(self.execution_order) + 1):
+        for order in range(1, max(self.execution_order, default=-1) + 1):
             self._executeNodes(
                     tuple(node_idx for node_idx, node_order in enumerate(self.execution_order) if node_order == order), 
                         input_data_transfer, ignore_cache, verbose)
