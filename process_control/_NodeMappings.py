@@ -172,3 +172,20 @@ class NodeRunOutput(NodeDict):
         for output, value in zip(self.keys, self.values):
             outputs.append(f"{output} -> {value}")
         return f"{self._owner}: Computed output\n" + "\n".join(outputs)
+
+class NodeRunInput(NodeDict):
+    def __getattr__(self, key):
+        try:
+            return super().__getattr__(key)
+        except:
+            # for some reason parallel processing require direct mapping to properties are required
+            raise ValueError(f"{object.__getattribute__(self, '_NodeDict__owner')} does not have an input named '{key}'.")
+        
+    # def __str__(self) -> str:
+    #     return f"{self._owner}: Produced output {super().__str__()}"
+    
+    def __repr__(self) -> str:
+        inputs = []
+        for input, value in zip(self.keys, self.values):
+            inputs.append(f"{input} -> {value}")
+        return f"{self._owner}: Given input\n" + "\n".join(inputs)

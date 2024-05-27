@@ -4,7 +4,7 @@ import warnings
 import inspect
 import numpy as np
 import copy
-from ._NodeMappings import NodeRunOutput, NodeMapping, NodeInputOutput
+from ._NodeMappings import NodeRunOutput, NodeRunInput, NodeMapping, NodeInputOutput
 import operator
 
 class ProcessNode(object):
@@ -146,7 +146,8 @@ class ProcessNode(object):
                         print(f"{self.__str__()}: Using cached data.")
                     return self._output_cache
             else:
-                self._copyInput(input_dict, verbose)
+                # self._copyInput(input_dict)
+                self._input_cache = NodeRunInput(self, list(input_dict.keys()), list(input_dict.values()))
         # check data in contains all necessary input
         for input_str in self.mandatory_inputs:
             if input_str not in input_dict:
@@ -194,7 +195,8 @@ class ProcessNode(object):
         
         # check if data should be cached
         if self.cache_output and not ignore_cache:
-            self._copyOutput(output, verbose)
+            # self._copyOutput(output)
+            self._output_cache = output
 
         # return output
         return output
@@ -207,13 +209,13 @@ class ProcessNode(object):
     
     def _inputEquality(self, dict_ : dict) -> bool:
         if self._input_cache is not None:
-            if dict_.keys() != self._input_cache.keys():
+            if dict_.keys() != set(self._input_cache.keys):
                 return False
             return all(np.array_equal(dict_[key], self._input_cache[key]) for key in dict_)
         else:
             return False
         
-    def _copyInput(self, dict_ : dict, verbose : bool):
+    def _copyInput(self, dict_ : dict):
         self._input_cache = {}
         for k,v in dict_.items():
             self._input_cache[k] = v
@@ -224,17 +226,17 @@ class ProcessNode(object):
             #         print(f"Could not copy input '{k}' of node {self}, copying only reference.")
             #     self._input_cache[k] = v
 
-    def _copyOutput(self, output : tuple, verbose : bool):
-        output_cache = [None]*len(output)
-        for i,v in enumerate(output):
-            output_cache[i] = v
+    def _copyOutput(self, output : tuple):
+        # output_cache = [None]*len(output)
+        # for i,v in enumerate(output):
+        #     output_cache[i] = v
             # try:
             #     output_cache[i] = copy.deepcopy(v)
             # except:
             #     if verbose:
             #         print(f"Could not copy output '{self.outputs[i]}' of node {self}, copying only reference.")
             #     output_cache[i] = v
-        self._output_cache = NodeRunOutput(self, self.outputs, output_cache)
+        self._output_cache = NodeRunOutput(self, self.outputs, output.copy())
 
     def _createInputOutputAttributes(self) -> None:
         self.input = NodeMapping(self, self.inputs, tuple(NodeInput(self, input) for input in self.inputs), True)
@@ -264,7 +266,7 @@ class ProcessNode(object):
             if k not in ["_input_cache", "_output_cache"]:
                 setattr(result, k, copy.deepcopy(v, memo))
             else:
-                 setattr(result, k, None)
+                setattr(result, k, None)
         return result
 
     def copy(self):
