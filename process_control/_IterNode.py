@@ -5,6 +5,7 @@ from itertools import chain
 from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
 from threading import Thread
+import sys
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -31,7 +32,7 @@ class IteratingNode(ProcessNode):
         outputs:
             the outputs from the iterating node are appended to an iteration list, hence they have '_list' appended to their name
     """
-    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", exclude_outputs : tuple[str] = tuple(), parallel_processing : bool = False, nr_processes : int = -1, description : str = "") -> None:
+    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", exclude_outputs : tuple[str] = tuple(), parallel_processing : bool = False, nr_processes : int = -1, show_pbar : bool = True, description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
@@ -39,6 +40,7 @@ class IteratingNode(ProcessNode):
         self._iterating_name = iterating_name
         self.parallel_processing = parallel_processing
         self.nr_processes = nr_processes
+        self.show_pbar = show_pbar
         
         # make sure iterating inputs is a list
         if isinstance(iterating_inputs, str):
@@ -83,6 +85,9 @@ class IteratingNode(ProcessNode):
     def _run(self, verbose : bool, **input_dict):
         # check input_dict
         nr_iter = self._checkInput(input_dict)
+        # handle zero iterations
+        if nr_iter == 0:
+            return tuple(tuple() for _ in self.include_outputs)
         # iterating inputs
         arg_values_list = [ input_dict[self._listName(iter_input)] for iter_input in self.iterating_inputs ] 
         # create internal node input
@@ -103,7 +108,7 @@ class IteratingNode(ProcessNode):
                 recv_threads[i] = Thread(target=self._pipeRecv, args=(pipes[i], recv_results, i))
                 recv_threads[i].start()
             # process to update tqdm process bar
-            pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", verbose))
+            pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", self._show_pbar, verbose))
             # start processes
             pbar_thread.start()
             # wait for recv result
@@ -131,7 +136,7 @@ class IteratingNode(ProcessNode):
                 output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)})
                 return output[self.include_outputs]
             # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
-            if verbose:
+            if self._show_pbar and verbose:
                 mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
                 mapped = map(f_single_iteration, zip(*arg_values_list))
@@ -149,8 +154,8 @@ class IteratingNode(ProcessNode):
             pipe.close()
 
     @staticmethod
-    def _pbarUpdate(pbar_queue, nr_iter, desc, verbose):
-        if verbose:
+    def _pbarUpdate(pbar_queue, nr_iter, desc, show_pbar, verbose):
+        if show_pbar and verbose:
             with tqdm(total = nr_iter, desc = desc) as pbar:
                 for nr in iter(pbar_queue.get, None):
                     pbar.update(nr)
@@ -177,7 +182,12 @@ class IteratingNode(ProcessNode):
                 pbar_queue.put(nr)
                 nr = 0
         pbar_queue.put(nr)
+        # join queue
+        pbar_queue.close()
+        pbar_queue.join_thread()
+        # pivot outputs
         pivot_outputs = []
+        non_numeric_outputs = []
         for i, output in enumerate(zip( *outputs )):
             if is_numeric(output[0]):
                 try:
@@ -186,10 +196,14 @@ class IteratingNode(ProcessNode):
                     raise RuntimeError(f"Unable able to concatenate numeric output: {include_outputs[i]} from node {iterating_node}.")
             else:
                 pivot_outputs.append(output)
-                raise RuntimeWarning(f"Output: {include_outputs[i]} from node {iterating_node} is not numeric. " \
-                                        + "Transfering data betwen processes can be slow.")
+                non_numeric_outputs.append(include_outputs[i])
+        # send result
         pipe.send(tuple(pivot_outputs))
         pipe.close()
+        # warn about non numeric outputs
+        if non_numeric_outputs:
+            print(f"Output(s): {non_numeric_outputs} from node {iterating_node} is not numeric. " \
+                                        + "Transfering data betwen processes can be slow.", file=sys.stderr)
 
     @staticmethod
     def _iterArgs(nr_iter, nr_chunks, iterable_list):
@@ -265,6 +279,14 @@ class IteratingNode(ProcessNode):
             self._nr_processes = cpu_count()
         else:
             self._nr_processes = int(val)
+    
+    @property
+    def show_pbar(self) -> bool:
+        return self._show_pbar
+
+    @show_pbar.setter
+    def show_pbar(self, val) -> None:
+        self._show_pbar = bool(val)
 
     # modified properties
     @property
