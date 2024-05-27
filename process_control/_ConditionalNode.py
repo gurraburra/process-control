@@ -52,8 +52,8 @@ class ConditionalNode(ProcessNode):
                 # check input
                 if isinstance(input, NodeInput):
                     assert input.owner == conditional_node, f"Can only map a NodeInput of the conditional node."
-            # update map
-            in_out_map[self._outputs.index(output.name)] = input
+                # update map
+                in_out_map[self._outputs.index(output.name)] = input
         self._in_out_map = tuple(in_out_map)
         
         # create attributes
