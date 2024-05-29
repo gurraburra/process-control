@@ -24,6 +24,32 @@ class ValueNode(ProcessNode):
     def value(self, val):
         self._value = val
 
+    # redfined properties
+    # value node should never cache data
+    @property
+    def cache_data(self) -> bool:
+        return False
+    
+    @cache_data.setter
+    def cache_data(self, val : bool) -> None:
+        pass
+
+    @property
+    def cache_input(self) -> bool:
+        return False
+    
+    @cache_input.setter
+    def cache_input(self, val : bool) -> None:
+        pass
+
+    @property
+    def cache_output(self) -> bool:
+        return False
+    
+    @cache_output.setter
+    def cache_output(self, val : bool) -> None:
+        pass
+
 class CustomNode(ProcessNode):
     """
     A simple node with just one input and one output.
