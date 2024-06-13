@@ -138,6 +138,11 @@ class ProcessNode(object):
         return tuple(None for out in self.outputs)
     
     def run(self, ignore_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
+        # check inputs
+        self._checkRunInputs(input_dict)
+        # add non mandatory inputs
+        self._addNonMandatoryInputs(input_dict)
+
         # check if input chached
         if self.cache_input and not ignore_cache:
             if self._inputEquality(input_dict):
@@ -148,16 +153,6 @@ class ProcessNode(object):
             else:
                 # self._copyInput(input_dict)
                 self._input_cache = NodeRunInput(self, list(input_dict.keys()), list(input_dict.values()))
-        # check data in contains all necessary input
-        for input_str in self.mandatory_inputs:
-            if input_str not in input_dict:
-                raise TypeError(f"Node {self} is missing input: '{input_str}'.")
-        # check for redudant inputs
-        for input_str in input_dict.keys():
-            if input_str not in self.inputs:
-                raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
-        # add non mandatory inputs
-        self._addNonMandatoryInputs(input_dict)
             
         # compute output
         # catch warnings 
@@ -202,6 +197,16 @@ class ProcessNode(object):
         return output
     
     # run helper functions
+    def _checkRunInputs(self, input_dict : dict) -> None:
+        # check data in contains all necessary input
+        for input_str in self.mandatory_inputs:
+            if input_str not in input_dict:
+                raise TypeError(f"Node {self} is missing input: '{input_str}'.")
+        # check for redudant inputs
+        for input_str in input_dict.keys():
+            if input_str not in self.inputs:
+                raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
+
     def _addNonMandatoryInputs(self, input_dict : dict) -> None:
         for key, value in zip(self.non_mandatory_inputs, self.default_inputs):
             if key not in input_dict:
