@@ -84,23 +84,24 @@ class IteratingNode(ProcessNode):
 
     def _run(self, verbose : bool, **input_dict):
         # check input_dict
-        nr_iter = self._checkInput(input_dict)
+        nr_iter, moved_iterating_inputs = self._checkInput(input_dict)
         # handle zero iterations
         if nr_iter == 0:
             return tuple(tuple() for _ in self.include_outputs)
         # iterating inputs
-        arg_values_list = [ input_dict[self._listName(iter_input)] for iter_input in self.iterating_inputs ] 
+        iterating_inputs = [iter_input for iter_input in self.iterating_inputs if iter_input not in moved_iterating_inputs]
+        arg_values_list = [ input_dict[self._listName(iter_input)] for iter_input in iterating_inputs ] 
         # create internal node input
         common_input_dict = input_dict.copy()
         # remove list names
-        for iter_input in self.iterating_inputs:
+        for iter_input in iterating_inputs:
             common_input_dict.pop(self._listName(iter_input))
         # Check if parallel processing or not
         if self.parallel_processing and nr_iter > 1:
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
-            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, self.iterating_inputs, arg_values, self.include_outputs,) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
+            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
             # receive value threads (separete recv threads are needed for pipe not to hang when writing large data)
             recv_threads = [None] * len(processes)
             recv_results = [None] * len(processes)
@@ -133,7 +134,7 @@ class IteratingNode(ProcessNode):
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *recv_results ))
         else:
             def f_single_iteration(args):
-                output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)})
+                output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(iterating_inputs, args)})
                 return output[self.include_outputs]
             # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
             if self._show_pbar and verbose:
@@ -237,16 +238,20 @@ class IteratingNode(ProcessNode):
             raise ValueError("Inconsistent lengths given for the iterating inputs.")
         else:
             nr_iter = lenghts.pop()
-        # make sure all iterating inputs with length one
+        # handle iterating inputs with length 1
+        moved_iterating_inputs = []
         for iter_input in self.iterating_inputs:
             val = input_dict[self._listName(iter_input)]
             len_ = len(val)
             if len_ != nr_iter:
                 if len_ == 1:
-                    input_dict[self._listName(iter_input)] = val * nr_iter
+                    # move input from iterating inputs to non iterating input
+                    input_dict.pop(self._listName(iter_input))
+                    input_dict[iter_input] = val[0]
+                    moved_iterating_inputs.append(iter_input)
                 else:
                     raise ValueError("Inconsistent lengths given for the iterating inputs, coding error...")
-        return nr_iter
+        return nr_iter, moved_iterating_inputs
 
     def _listName(self, name : str) -> str:
         return f"{self._iterating_name}Iter_{name}"
