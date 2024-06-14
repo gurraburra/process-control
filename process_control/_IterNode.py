@@ -222,6 +222,11 @@ class IteratingNode(ProcessNode):
         for iter_input in self.iterating_inputs:
             # check if iter_input given
             if self._listName(iter_input) in input_dict:
+                # enable zero length input
+                if not isinstance(input_dict[self._listName(iter_input)], Iterable):
+                    # add input to list
+                    input_dict[self._listName(iter_input)] = [ input_dict[self._listName(iter_input)] ]
+                # check length of input
                 lenghts.add(len(input_dict[self._listName(iter_input)]))
             # if not it must be a non mandatory input (or error would already been raised by parrent clase)
             else:
