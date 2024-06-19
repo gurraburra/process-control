@@ -477,7 +477,7 @@ class ProcessWorkflow(ProcessNode):
             return execution_order[node_idx]
         # this node has already been looked at and reoccured -> hence cycle dependencies
         if order == -2:
-            raise ValueError(f"Cycle dependency found for node {node_idx}")
+            raise ValueError(f"Cycle dependency found for node {node_idx+1} ({self._internal_nodes[node_idx]})")
         
     # input output to workflow to be used during defintion of the workflow
     class WfMapping(NodeMapping):
