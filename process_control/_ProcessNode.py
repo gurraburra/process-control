@@ -216,7 +216,16 @@ class ProcessNode(object):
         if self._input_cache is not None:
             if dict_.keys() != set(self._input_cache.keys):
                 return False
-            return all(np.array_equal(dict_[key], self._input_cache[key]) for key in dict_)
+            for key in dict_:
+                # allow nan values
+                try:
+                    b = np.array_equal(dict_[key], self._input_cache[key], equal_nan=True)
+                # wont work for objects, ignore nans
+                except TypeError:
+                    b = np.array_equal(dict_[key], self._input_cache[key], equal_nan=False)
+                if not b:
+                    return False
+            return True
         else:
             return False
         
@@ -254,9 +263,9 @@ class ProcessNode(object):
     
     def __repr__(self):
         return f"{self.__str__()}\n" \
-                    "Inputs: " + str(self.inputs) + "\n" \
-                        "Defaults: " + str(self.default_inputs) + "\n" \
-                            "Outputs: " + str(self.outputs) + "\n"
+                    "Inputs: " + str(self.mandatory_inputs + tuple(f"{inp}={def_}" for inp,def_ in zip(self.non_mandatory_inputs, self.default_inputs))) + "\n" \
+                        "Outputs: " + str(self.outputs)
+                        # "Defaults: " + str(self.default_inputs) + "\n" 
     # def __copy__(self):
     #     cls = self.__class__
     #     result = cls.__new__(cls)
