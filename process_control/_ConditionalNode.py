@@ -125,6 +125,10 @@ class ConditionalNode(ProcessNode):
                     else:
                         self._non_mandatory_inputs.append(non_mand_input)
                         self._default_inputs.append(default_input)
+        # convert to tuple
+        self._mandatory_inputs = tuple(self._mandatory_inputs)
+        self._non_mandatory_inputs = tuple(self._non_mandatory_inputs)
+        self._default_inputs = tuple(self._default_inputs)
         
         # create attributes
         self._createInputOutputAttributes()
