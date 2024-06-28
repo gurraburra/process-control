@@ -80,11 +80,11 @@ class NodeDict(object):
     def _owner(self) -> object:
         return self.__owner
     
-    @property
+    #@property
     def keys(self) -> Iterable:
         return self.__keys
     
-    @property
+    #@property
     def values(self) -> Iterable:
         return self.__tuple
         
@@ -108,11 +108,11 @@ class NodeDict(object):
             # return object.__getattribute__(self, key)
         
     def __iter__(self):
-        for data in self.values:
+        for data in self.values():
             yield data
         
     def __str__(self) -> str:
-        return f"{self.keys} -> {self.values}"
+        return f"{self.keys()} -> {self.values()}"
     
     def __repr__(self) -> str:
         return self.__str__()
@@ -154,7 +154,7 @@ class NodeMapping(NodeDict):
             raise ValueError(f"{object.__getattribute__(self, '_NodeDict__owner')} does not have an {object.__getattribute__(self, '_NodeMapping__input_output_str')} named '{key}'.")
 
     def __str__(self) -> str:
-        return f"{self._owner}: {self._input_output_str} -> {self.keys}"
+        return f"{self._owner}: {self._input_output_str} -> {self.keys()}"
 
 class NodeRunOutput(NodeDict):
     def __getattr__(self, key):
@@ -169,7 +169,7 @@ class NodeRunOutput(NodeDict):
     
     def __repr__(self) -> str:
         outputs = []
-        for output, value in zip(self.keys, self.values):
+        for output, value in zip(self.keys(), self.values()):
             outputs.append(f"{output} -> {value}")
         return f"{self._owner}: Computed output\n" + "\n".join(outputs)
 
@@ -186,6 +186,6 @@ class NodeRunInput(NodeDict):
     
     def __repr__(self) -> str:
         inputs = []
-        for input, value in zip(self.keys, self.values):
+        for input, value in zip(self.keys(), self.values()):
             inputs.append(f"{input} -> {value}")
         return f"{self._owner}: Given input\n" + "\n".join(inputs)

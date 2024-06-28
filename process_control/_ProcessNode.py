@@ -214,7 +214,7 @@ class ProcessNode(object):
     
     def _inputEquality(self, dict_ : dict) -> bool:
         if self._input_cache is not None:
-            if dict_.keys() != set(self._input_cache.keys):
+            if dict_.keys() != set(self._input_cache.keys()):
                 return False
             for key in dict_:
                 # allow nan values

@@ -76,7 +76,7 @@ class ConditionalNode(ProcessNode):
             for cond_output in self._outputs:
                 for node, mapping in internal_map_out.items():
                     if cond_output not in mapping:
-                        assert cond_output in node.output.keys, f"Conditional node {node} is missing output '{cond_output}'."
+                        assert cond_output in node.output.keys(), f"Conditional node {node} is missing output '{cond_output}'."
                         internal_map_out[node][cond_output] = cond_output
             # save internal map
             self._internal_map_out = internal_map_out

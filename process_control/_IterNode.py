@@ -69,9 +69,9 @@ class IteratingNode(ProcessNode):
             exclude_outputs = (exclude_outputs,)
         # check all exclude outputs is in interating node
         for exclude in exclude_outputs:
-            if not exclude in iterating_node.output.keys:
+            if not exclude in iterating_node.output.keys():
                 raise ValueError(f"Output {exclude} to exclude does not exist in node: {iterating_node}.")
-        self.include_outputs = iterating_node.output.keys - exclude_outputs
+        self.include_outputs = iterating_node.output.keys() - exclude_outputs
 
         # create outputs tuple and ad _list to all names
         self._outputs = tuple(self._listName(output) for output in self.include_outputs)
@@ -136,7 +136,7 @@ class IteratingNode(ProcessNode):
             def f_single_iteration(args):
                 output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(iterating_inputs, args)})
                 return output[self.include_outputs]
-            # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values
+            # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values()
             if self._show_pbar and verbose:
                 mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
