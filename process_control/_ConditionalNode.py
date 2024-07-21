@@ -137,7 +137,7 @@ class ConditionalNode(ProcessNode):
     def outputs(self) -> tuple:
         return self._outputs
 
-    def _run(self, ignore_cache : bool, verbose : bool, **input_dict):
+    def _run(self, ignore_cache : bool, update_cache : bool, verbose : bool, **input_dict):
         # get condition
         condition = input_dict[self._conditional_input]
         # check for if condition is valid
@@ -158,7 +158,7 @@ class ConditionalNode(ProcessNode):
                 if input in input_dict:
                     conditional_node_input[input] = input_dict[input]
             # run conditional node
-            result = conditional_node.run(ignore_cache=ignore_cache, verbose=verbose, **conditional_node_input)
+            result = conditional_node.run(ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose, **conditional_node_input)
             # check if internal map out exist
             if self._internal_map_out is not None:
                 # if yes -> use it to map output from node

@@ -70,8 +70,12 @@ class ProcessNode(object):
         return self._description
     
     @property
-    def has_cache_ignore_option(self):
+    def has_ignore_cache_option(self):
         return "ignore_cache" in inspect.getfullargspec(self._run).args
+
+    @property
+    def has_update_cache_option(self):
+        return "update_cache" in inspect.getfullargspec(self._run).args
     
     @property
     def has_verbose_option(self):
@@ -137,15 +141,15 @@ class ProcessNode(object):
     def _run(self, in_1, in_2, in_3 = None) -> tuple:
         return tuple(None for out in self.outputs)
     
-    def run(self, ignore_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
+    def run(self, ignore_cache : bool = False, update_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
         # check inputs
         self._checkRunInputs(input_dict)
         # add non mandatory inputs
         self._addNonMandatoryInputs(input_dict)
 
         # check if input chached
-        if self.cache_input and not ignore_cache:
-            if self._inputEquality(input_dict):
+        if not ignore_cache and self.cache_input:
+            if not update_cache and self._inputEquality(input_dict):
                 if self._output_cache is not None:
                     if verbose:
                         print(f"{self.__str__()}: Using cached data.")
@@ -162,8 +166,10 @@ class ProcessNode(object):
             # warnings.simplefilter("ignore", category=DeprecationWarning)
             try:
                 run_kwds = {}
-                if self.has_cache_ignore_option:
+                if self.has_ignore_cache_option:
                     run_kwds["ignore_cache"] = ignore_cache
+                if self.has_update_cache_option:
+                    run_kwds["update_cache"] = update_cache
                 if self.has_verbose_option:
                     run_kwds["verbose"] = verbose
                 output_tuple = self._run(**run_kwds, **input_dict)
@@ -189,7 +195,7 @@ class ProcessNode(object):
         output = NodeRunOutput(self, self.outputs, output_tuple)
         
         # check if data should be cached
-        if self.cache_output and not ignore_cache:
+        if not ignore_cache and self.cache_output:
             # self._copyOutput(output)
             self._output_cache = output
 
