@@ -340,39 +340,42 @@ class NodeOutput(NodeInputOutput):
     
     def _checkBinaryOperand(self, other):
         if not isinstance(other, NodeOutput):
-            raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
+            from ._SimpleNodes import ValueNode
+            other = ValueNode(other).output.value
+            # raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
         # check if blank output given, marked that name set to None
         if self.name is None or other.name is None:
             raise ValueError("Blank outputs are not valid in binary operations.")
+        return other
     def __add__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__add__").output.output
     def __sub__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__sub__").output.output
     def __mul__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__mul__").output.output
     def __truediv__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__truediv__").output.output
     def __div__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__div__").output.output
     def __lt__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__lt__").output.output
     def __le__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__le__").output.output
     def __gt__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__gt__").output.output
     def __ge__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__ge__").output.output
     def __eq__(self, other : object):
-        self._checkBinaryOperand(other)
+        other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__eq__").output.output
     
     class AbstractAttribute(ABC):
