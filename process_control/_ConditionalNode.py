@@ -16,7 +16,7 @@ class ConditionalNode(ProcessNode):
     # no default value
     __no_default_condition = None
     
-    def __init__(self, conditional_input : str, condition_node_map : dict[object, ProcessNode], default_condition : object = __no_default_condition, output_mapping : dict[str, tuple[NodeOutput]] = None, description : str = "") -> None:
+    def __init__(self, conditional_input : str, condition_node_map : dict[object, ProcessNode], default_condition : object = __no_default_condition, input_mapping : dict[str, tuple[NodeInput]] = None, output_mapping : dict[str, tuple[NodeOutput]] = None, description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
@@ -92,11 +92,43 @@ class ConditionalNode(ProcessNode):
             self._non_mandatory_inputs = [conditional_input]
             self._default_inputs = [self._default_condition]
 
+        if input_mapping is None:
+            self._internal_map_in = None
+        else:
+            # create internal map from nodes to outputs of conditional node
+            internal_map_in = {node : {} for node in condition_node_map.values()}
+            # list with conditional node outputs
+            inputs = []
+            # loop through output mapping
+            for cond_input, node_inputs in input_mapping.items():
+                # make sure they have right types
+                assert isinstance(cond_input, str)
+                # if node_inputs is just single node_input -> put in in a tuple
+                if isinstance(node_inputs, NodeInput):
+                    node_inputs = (node_inputs, )
+                assert isinstance(node_inputs, (list, tuple))
+                # check each input
+                for node_input in node_inputs:
+                    assert isinstance(node_input, NodeInput)
+                    assert node_input.owner in internal_map_in, f"Incorrect node input {node_input}, node not among conditional nodes."
+                    internal_map_in[node_input.owner][node_input.name] = cond_input
+            
+            # check all nodes has maps for their inputs
+            for node, mapping in internal_map_in.items():
+                for input in node.inputs:
+                    if input not in mapping:
+                        mapping[input] = input
+            # save internal map
+            self._internal_map_in = internal_map_in
+
         # loop through inputs of all nodes in conditional mapping
         for node in condition_node_map.values():
             if node is not None:
                 # check first mandatory inputs
                 for mand_input in node.mandatory_inputs:
+                    # check internal mapping
+                    if self._internal_map_in is not None:
+                        mand_input = self._internal_map_in[node][mand_input]
                     # if mandatory input exist as mandatory input -> leave it there
                     if mand_input in self._mandatory_inputs:
                         pass
@@ -112,6 +144,9 @@ class ConditionalNode(ProcessNode):
                         self._mandatory_inputs.append(mand_input)
                 # check non mandatory inputs and default values
                 for non_mand_input, default_input in zip(node.non_mandatory_inputs, node.default_inputs):
+                    # check internal mapping
+                    if self._internal_map_in is not None:
+                        non_mand_input = self._internal_map_in[node][non_mand_input]
                     # if non mandatory input exist as mandatory input -> leave it there
                     if non_mand_input in self._mandatory_inputs:
                         pass
@@ -152,11 +187,21 @@ class ConditionalNode(ProcessNode):
         if conditional_node is not None:
             # create input_dict to conditional node
             conditional_node_input = {}
-            # make sure input_dict it only contains inputs to that specific nodes
-            for input in conditional_node.inputs:
-                # add input if given
-                if input in input_dict:
-                    conditional_node_input[input] = input_dict[input]
+            # check if internal mapping exist
+            if self._internal_map_in is not None:
+                # make sure input_dict it only contains inputs to that specific nodes
+                for input in conditional_node.inputs:
+                    # get input to conditional node from mapping
+                    cond_input = self._internal_map_in[conditional_node][input]
+                    # add input if given
+                    if cond_input in input_dict:
+                        conditional_node_input[input] = input_dict[cond_input]
+            else:
+                # make sure input_dict it only contains inputs to that specific nodes
+                for input in conditional_node.inputs:
+                    # add input if given
+                    if input in input_dict:
+                        conditional_node_input[input] = input_dict[input]
             # run conditional node
             result = conditional_node.run(ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose, **conditional_node_input)
             # check if internal map out exist
