@@ -35,24 +35,10 @@ class ConditionalNode(ProcessNode):
         self._default_condition = default_condition
 
         if output_mapping is None:
-            # check that all nodes produce same outputs
-            outputs = []
-            for node in condition_node_map.values():
-                if node is not None:
-                    outputs.append(frozenset(node.outputs))
-            nr_outputs = len(set(outputs))
-            if nr_outputs > 1:
-                raise ValueError("Conditional nodes contains different outputs.")
-            elif nr_outputs == 0:
-                raise ValueError("No outputs produced by conditional nodes.")
-            else:
-                self._outputs = tuple(outputs[0])
             self._internal_map_out = None
         else:
             # create internal map from nodes to outputs of conditional node
-            internal_map_out = {node : {} for node in condition_node_map.values()}
-            # list with conditional node outputs
-            outputs = []
+            internal_map_out = {node : {} for node in condition_node_map.values() if node is not None}
             # loop through output mapping
             for cond_output, node_outputs in output_mapping.items():
                 # make sure they have right types
@@ -61,8 +47,6 @@ class ConditionalNode(ProcessNode):
                 if isinstance(node_outputs, NodeOutput):
                     node_outputs = (node_outputs, )
                 assert isinstance(node_outputs, (list, tuple))
-                # add to outputs
-                outputs.append(cond_output)
                 # check each no double mapping
                 assert len(node_outputs) == len(set([output.owner for output in node_outputs])), f"Double mappings given for output '{cond_output}'."
                 # check each output
@@ -70,16 +54,31 @@ class ConditionalNode(ProcessNode):
                     assert isinstance(node_output, NodeOutput)
                     assert node_output.owner in internal_map_out, f"Incorrect node output {node_output}, node not among conditional nodes."
                     internal_map_out[node_output.owner][cond_output] = node_output.name
-            self._outputs = tuple(outputs)
 
             # check all nodes has maps to outputs
-            for cond_output in self._outputs:
-                for node, mapping in internal_map_out.items():
+            for node, mapping in internal_map_out.items():
+                for cond_output in output_mapping.keys():
                     if cond_output not in mapping:
-                        assert cond_output in node.output.keys(), f"Conditional node {node} is missing output '{cond_output}'."
+                        assert cond_output in node.outputs, f"Conditional node {node} is missing output '{cond_output}'."
                         internal_map_out[node][cond_output] = cond_output
             # save internal map
             self._internal_map_out = internal_map_out
+
+        # check that all nodes produce same outputs
+        outputs = []
+        for node in condition_node_map.values():
+            if node is not None:
+                if self._internal_map_out is not None:
+                    outputs.append(frozenset(self._internal_map_out[node].keys()))
+                else:
+                    outputs.append(node.outputs)
+        nr_outputs = len(set(outputs))
+        if nr_outputs > 1:
+            raise ValueError("Conditional nodes contains different outputs.")
+        elif nr_outputs == 0:
+            raise ValueError("No outputs produced by conditional nodes.")
+        else:
+            self._outputs = tuple(outputs[0])
 
 
         # create input output variables variables
@@ -96,7 +95,7 @@ class ConditionalNode(ProcessNode):
             self._internal_map_in = None
         else:
             # create internal map from nodes to outputs of conditional node
-            internal_map_in = {node : {} for node in condition_node_map.values()}
+            internal_map_in = {node : {} for node in condition_node_map.values() if node is not None}
             # list with conditional node outputs
             inputs = []
             # loop through output mapping
