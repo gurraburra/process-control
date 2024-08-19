@@ -264,7 +264,7 @@ class ProcessNode(object):
 
 
     def __str__(self):
-        descr = f" - {self.description}" if self.description else "" 
+        descr = f" - '{self.description}'" if self.description else "" 
         return type(self).__name__ + descr
     
     def __repr__(self):
