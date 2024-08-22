@@ -13,8 +13,12 @@ class ConditionalNode(ProcessNode):
     default_condition: 
         default condition if the conditional_input not given at runtime
     """
+    class _UniqueVal:
+        pass
     # no default value
-    __no_default_condition = None
+    __no_default_condition = _UniqueVal()
+    # if no match
+    no_match_condition = _UniqueVal()
     
     def __init__(self, conditional_input : str, condition_node_map : dict[object, ProcessNode], default_condition : object = __no_default_condition, input_mapping : dict[str, tuple[NodeInput]] = None, output_mapping : dict[str, tuple[NodeOutput]] = None, description : str = "") -> None:
         # call super init
@@ -31,7 +35,7 @@ class ConditionalNode(ProcessNode):
         self._condition_node_map = condition_node_map
         # check default input
         if default_condition is not self.__no_default_condition:
-            assert default_condition in condition_node_map, f"Missing default condition: {default_condition}."
+            assert default_condition in condition_node_map, f"Missing default condition: '{default_condition}'."
         self._default_condition = default_condition
 
         if output_mapping is None:
@@ -176,10 +180,10 @@ class ConditionalNode(ProcessNode):
         condition = input_dict[self._conditional_input]
         # check for if condition is valid
         if condition not in self._condition_node_map:
-            if self._default_condition is self.__no_default_condition:
-                raise RuntimeError(f"Node {self} got unexpected condition: {condition}.")
+            if self.no_match_condition not in self._condition_node_map:
+                raise RuntimeError(f"Node {self} got unexpected condition: '{condition}'.")
             else:
-                condition = self._default_condition
+                condition = self.no_match_condition
         # it it is get node to execute
         conditional_node = self._condition_node_map[condition]
         # allow for conditional node to be None -> Do nothing
