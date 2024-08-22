@@ -68,6 +68,15 @@ class TupleSubtract(tuple):
             return TupleSubtract(tuple(item for item in self if item not in obj))
         else:
             return TupleSubtract(tuple(item for item in self if item is not obj))
+        
+    def __truediv__(self, obj : tuple):
+        return self.__sub__(obj)
+
+    def __floordiv__(self, obj : tuple):
+        return self.__sub__(obj)
+    
+    def __div__(self, obj : tuple):
+        return self.__sub__(obj)
     
 class NodeDict(object):
     def __init__(self, owner : object, keys : Iterable, iterable : Iterable) -> None:
