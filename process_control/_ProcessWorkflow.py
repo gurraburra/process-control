@@ -349,7 +349,7 @@ class ProcessWorkflow(ProcessNode):
                 pass
 
         # create temporary place holder for worfklow in data
-        input_output_wf = {"mandatory_inputs" : [], "non_mandatory_inputs" : [], "default_inputs" : [], "direct_mapping" : []}
+        input_output_wf = {"mandatory_inputs" : [], "non_mandatory_inputs" : [], "default_inputs" : [], "conflicting_non_mandatory_inputs" : []}
         # add all entreis
         new_map = []
         for idx, output, input in zip(range(len(outputs)), outputs, inputs):
@@ -369,7 +369,7 @@ class ProcessWorkflow(ProcessNode):
                 new_map.append((output,input))
 
         # list with inputs to workflow (direct mapping is mapping directly between input and output of workflow)
-        self._mandatory_inputs = tuple(input_output_wf["mandatory_inputs"] + input_output_wf["direct_mapping"])
+        self._mandatory_inputs = tuple(input_output_wf["mandatory_inputs"])
         self._non_mandatory_inputs = tuple(input_output_wf["non_mandatory_inputs"])
         self._default_inputs = tuple(input_output_wf["default_inputs"])
 
@@ -413,40 +413,41 @@ class ProcessWorkflow(ProcessNode):
             if input_node == self:
                 # check if output not alteady added
                 if output_str not in input_output_wf["non_mandatory_inputs"] and \
-                    output_str not in input_output_wf["mandatory_inputs"] and \
-                        output_str not in input_output_wf["direct_mapping"]:
-                    # store as direct mapping between workflow input/output
-                    input_output_wf["direct_mapping"].append(output_str)
+                    output_str not in input_output_wf["mandatory_inputs"]:
+                    # store as mandatory mapping for now
+                    input_output_wf["mandatory_inputs"].append(output_str)
             # otherwise node_in is internal
             else:
                 # check if output already assigned as non mandatory inputs
                 if output_str in input_output_wf["non_mandatory_inputs"]:
-                    # get index
-                    idx = input_output_wf["non_mandatory_inputs"].index(output_str)
                     # check if input is non mandatory in node_in
                     if input_str in input_node.non_mandatory_inputs:
+                        # get index
+                        idx = input_output_wf["non_mandatory_inputs"].index(output_str)
                         # if yes, check if default values are not the same
                         if input_output_wf["default_inputs"][idx] != input_node.default_inputs[input_node.non_mandatory_inputs.index(input_str)]:
                             # if not change input to mandatory
                             del input_output_wf["non_mandatory_inputs"][idx]
                             del input_output_wf["default_inputs"][idx]
                             input_output_wf["mandatory_inputs"].append(output_str)
+                            # remeber the conflict for future reference
+                            input_output_wf["conflicting_non_mandatory_inputs"].append(output_str)
                     # if input is mandatory in node_in
                     else:
-                        # change input to mandatory
-                        del input_output_wf["non_mandatory_inputs"][idx]
-                        del input_output_wf["default_inputs"][idx]
-                        input_output_wf["mandatory_inputs"].append(output_str)
-                # if input is already in mandatory inputs, leave it there
+                        # leave in non mandatory
+                        pass
                 elif output_str in input_output_wf["mandatory_inputs"]:
-                    pass
+                    # check output not earlier removed from non mandatory input due to conflict and if input is non mandatory in node_in
+                    if output_str not in input_output_wf["conflicting_non_mandatory_inputs"] and input_str in input_node.non_mandatory_inputs:
+                        # change input to non mandatory
+                        idx = input_output_wf["mandatory_inputs"].index(output_str)
+                        del input_output_wf["mandatory_inputs"][idx]
+                        # store as non-mandatory input
+                        input_output_wf["non_mandatory_inputs"].append(output_str)
+                        # store default input
+                        input_output_wf["default_inputs"].append(input_node.default_inputs[input_node.non_mandatory_inputs.index(input_str)])
                 # else if it has not been added yet
                 else:
-                    # check if output added to direct mapping
-                    if output_str in input_output_wf["direct_mapping"]:
-                        # then remove it
-                        del input_output_wf["direct_mapping"][input_output_wf["direct_mapping"].index(output_str)]
-                    # proceed by adding output to either mandatory or non mandatory inputs
                     # check if input of input node is mandatory
                     if input_str in input_node.mandatory_inputs:
                         # store as mandatory input
