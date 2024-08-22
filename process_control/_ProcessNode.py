@@ -359,6 +359,9 @@ class NodeOutput(NodeInputOutput):
     def __truediv__(self, other : object):
         other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__truediv__").output.output
+    def __floordiv__(self, other : object):
+        other = self._checkBinaryOperand(other)
+        return _BinaryOperand(self, other, "__floordiv__").output.output
     def __div__(self, other : object):
         other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__div__").output.output
