@@ -381,6 +381,10 @@ class NodeOutput(NodeInputOutput):
         other = self._checkBinaryOperand(other)
         return _BinaryOperand(self, other, "__eq__").output.output
     
+    # implent iter to tell python this class in not iterable
+    def __iter__(self):
+        raise TypeError(f"'{type(self).__name__}' object is not iterable")
+    
     class AbstractAttribute(ABC):
         @abstractmethod
         def __call__(self, data):
