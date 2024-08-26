@@ -109,16 +109,18 @@ class NodeDict(object):
 
     def __getattr__(self, key):
         if isinstance(key, int):
-            return self.__tuple[key]
+            try:
+                return self.__tuple[key]
+            except IndexError:
+                raise AttributeError(f"key: {key} not valid integer")
         elif isinstance(key, (tuple,list)):
-            return TupleSubtract(self.__getattr__(k) for k in key)
+            return TupleSubtract(NodeDict.__getattr__(self, k) for k in key)
         elif key in self.__keys:
             return self.__tuple[self.__keys.index(key)]
         elif key == 'all':
             return self.__tuple
         else:
-            raise AttributeError
-            # return object.__getattribute__(self, key)
+            raise AttributeError(f"key: '{key}' not valid string")            
         
     def __iter__(self):
         for data in self.values():
@@ -162,9 +164,12 @@ class NodeMapping(NodeDict):
     def __getattr__(self, key):
         try:
             return super().__getattr__(key)
-        except:
+        except Exception as e:
+            errmsg = f"could not find {object.__getattribute__(self, '_NodeMapping__input_output_str')} in node {object.__getattribute__(self, '_NodeDict__owner')}"
+            e.add_note(errmsg)
+            raise
             # for some reason parallel processing require direct mapping to properties are required
-            raise ValueError(f"{object.__getattribute__(self, '_NodeDict__owner')} does not have an {object.__getattribute__(self, '_NodeMapping__input_output_str')} named '{key}'.")
+            # raise ValueError(f"could not find {object.__getattribute__(self, '_NodeMapping__input_output_str')} in node {object.__getattribute__(self, '_NodeDict__owner')}") from e
 
     def __str__(self) -> str:
         return f"{self._owner}: {self._input_output_str} -> {self.keys()}"

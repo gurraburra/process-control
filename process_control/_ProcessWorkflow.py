@@ -224,10 +224,10 @@ class ProcessWorkflow(ProcessNode):
             #     output.owner = self
             # check if tuple (an one to many mapping)
             if isinstance(input, (tuple,list)):
-                # assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
-                # if output is not a NodeOutput -> wrap it in an ValueNode
-                if not isinstance(output, NodeOutput):
-                    output = ValueNode(output).output.value
+                assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
+                # # if output is not a NodeOutput -> wrap it in an ValueNode
+                # if not isinstance(output, NodeOutput):
+                #     output = ValueNode(output).output.value
                 # check for blank output name, only allowed in output is this workflow, signal by owner is None
                 if output.name is None:
                     assert output.owner is None, f"Expected a workflow output in entry #{i}"
@@ -256,19 +256,19 @@ class ProcessWorkflow(ProcessNode):
                 assert input.name is None, f"Incorrect input defined in entry #{i}"
 
                 for out_ in output:
-                    # assert isinstance(out_, NodeOutput), f"Incorrect output defined in entry #{i}"
-                    # if output is not a NodeOutput -> wrap it in an ValueNode
-                    if not isinstance(out_, NodeOutput):
-                        out_ = ValueNode(out_).output.value
+                    assert isinstance(out_, NodeOutput), f"Incorrect output defined in entry #{i}"
+                    # # if output is not a NodeOutput -> wrap it in an ValueNode
+                    # if not isinstance(out_, NodeOutput):
+                    #     out_ = ValueNode(out_).output.value
                     assert out_.name is not None, f"Blank to blank mapping found in entry #{i}"
                     inputs.append(NodeInput(None, out_.name))
                     outputs.append(out_)
             else:
                 # assert types
-                # assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
-                # if output is not a NodeOutput -> wrap it in an ValueNode
-                if not isinstance(output, NodeOutput):
-                    output = ValueNode(output).output.value
+                assert isinstance(output, NodeOutput), f"Incorrect output defined in entry #{i}"
+                # # if output is not a NodeOutput -> wrap it in an ValueNode
+                # if not isinstance(output, NodeOutput):
+                #     output = ValueNode(output).output.value
                 assert isinstance(input, NodeInput), f"Incorrect input defined in entry #{i}"
                 # check for empty output or input strings
                 if output.owner is None and output.name is None and input.name is not None:
