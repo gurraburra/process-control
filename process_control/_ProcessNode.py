@@ -144,8 +144,8 @@ class ProcessNode(object):
     def run(self, ignore_cache : bool = False, update_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
         # check inputs
         self._checkRunInputs(input_dict)
-        # add non mandatory inputs
-        self._addNonMandatoryInputs(input_dict)
+        # # add non mandatory inputs
+        # self._addNonMandatoryInputs(input_dict)
 
         # check if input chached
         if not ignore_cache and self.cache_input:
@@ -202,21 +202,48 @@ class ProcessNode(object):
         # return output
         return output
     
+    def _bestMatch(self, string, values):
+        potential_match = []
+        len_str = len(string)
+        # loop through values
+        for val in values:
+            len_val = len(val)
+            # check length
+            if  len_val > len_str:
+                continue
+            else:
+                # check match
+                if val == string[:len_val]:
+                    potential_match.append(val)
+        # check matches
+        if len(potential_match) == 1:
+            return potential_match[0]
+        else:
+            return None
+    
     # run helper functions
     def _checkRunInputs(self, input_dict : dict) -> None:
-        # check data in contains all necessary input
-        for input_str in self.mandatory_inputs:
+        # check inputs 
+        for input_str in self.inputs:
             if input_str not in input_dict:
-                raise TypeError(f"Node {self} is missing input: '{input_str}'.")
+                best_match = self._bestMatch(input_str, input_dict.keys())
+                if best_match is not None:
+                    input_dict[input_str] = input_dict[best_match]
+                    del input_dict[best_match]
+                else:
+                    if input_str in self.non_mandatory_inputs:
+                        input_dict[input_str] = self.default_inputs[self.non_mandatory_inputs.index(input_str)]
+                    else:
+                        raise TypeError(f"Node {self} is missing input: '{input_str}'.")
         # check for redudant inputs
         for input_str in input_dict.keys():
             if input_str not in self.inputs:
                 raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
 
-    def _addNonMandatoryInputs(self, input_dict : dict) -> None:
-        for key, value in zip(self.non_mandatory_inputs, self.default_inputs):
-            if key not in input_dict:
-                input_dict[key] = value
+    # def _addNonMandatoryInputs(self, input_dict : dict) -> None:
+    #     for key, value in zip(self.non_mandatory_inputs, self.default_inputs):
+    #         if key not in input_dict:
+    #             input_dict[key] = value
     
     def _inputEquality(self, dict_ : dict) -> bool:
         if self._input_cache is not None:
@@ -340,9 +367,9 @@ class NodeOutput(NodeInputOutput):
     
     def _checkBinaryOperand(self, other):
         if not isinstance(other, NodeOutput):
-            from ._SimpleNodes import ValueNode
-            other = ValueNode(other).output.value
-            # raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
+            # from ._SimpleNodes import ValueNode
+            # other = ValueNode(other).output.value
+            raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
         # check if blank output given, marked that name set to None
         if self.name is None or other.name is None:
             raise ValueError("Blank outputs are not valid in binary operations.")
