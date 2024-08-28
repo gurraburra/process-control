@@ -82,7 +82,7 @@ class IteratingNode(ProcessNode):
     def outputs(self) -> tuple:
         return self._outputs
 
-    def _run(self, verbose : bool, **input_dict):
+    def _run(self, verbose : bool, nr_processes : int, **input_dict):
         # check input_dict
         nr_iter, moved_iterating_inputs = self._checkInput(input_dict)
         # handle zero iterations
@@ -96,8 +96,11 @@ class IteratingNode(ProcessNode):
         # remove list names
         for iter_input in iterating_inputs:
             common_input_dict.pop(self._listName(iter_input))
+        # check nr processes
+        if nr_processes is not None:
+            self.nr_processes = nr_processes
         # Check if parallel processing or not
-        if self.parallel_processing and nr_iter > 1:
+        if self.parallel_processing and self.nr_processes > 1 and nr_iter > 1:
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
