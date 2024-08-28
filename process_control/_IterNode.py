@@ -57,7 +57,7 @@ class IteratingNode(ProcessNode):
                 default_inputs[non_mandatory_inputs.index(input)] = [default_inputs[non_mandatory_inputs.index(input)]]
                 non_mandatory_inputs[non_mandatory_inputs.index(input)] = self._listName(input)
             else:
-                raise ValueError(f"Input {input} does not exist in node: {iterating_node}.")
+                raise ValueError(f"Input '{input}' does not exist in node: {iterating_node}.")
         # create tuples
         self._iterating_inputs = tuple(iterating_inputs)
         self._mandatory_inputs = tuple(mandatory_inputs)
@@ -70,7 +70,7 @@ class IteratingNode(ProcessNode):
         # check all exclude outputs is in interating node
         for exclude in exclude_outputs:
             if not exclude in iterating_node.output.keys():
-                raise ValueError(f"Output {exclude} to exclude does not exist in node: {iterating_node}.")
+                raise ValueError(f"Output '{exclude}' to exclude does not exist in node: {iterating_node}.")
         self.include_outputs = iterating_node.output.keys() - exclude_outputs
 
         # create outputs tuple and ad _list to all names
