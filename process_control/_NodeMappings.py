@@ -64,10 +64,9 @@ class TupleSubtract(tuple):
         return super().__new__(cls, iterable)
     
     def __sub__(self, obj : tuple):
-        if isinstance(obj, TupleSubtract):
-            return TupleSubtract(tuple(item for item in self if not obj.__special_contains__(item)))
-        else:
-            return TupleSubtract(tuple(item for item in self if item is not obj))
+        if not isinstance(obj, Iterable) or isinstance(obj, NodeInputOutput):
+            obj = (obj, )
+        return TupleSubtract(tuple(item for item in self if not self.__special_contains__(item, obj)))
         
     def __truediv__(self, obj : tuple):
         return self.__sub__(obj)
@@ -78,9 +77,12 @@ class TupleSubtract(tuple):
     def __div__(self, obj : tuple):
         return self.__sub__(obj)
     
-    # need this special contain since the tuple might contain NodeOutput which overrides the __equal__ and returns a _BinaryOperand
-    def __special_contains__(self, key: object) -> bool:
-        return any(key is item for item in self)
+    # need this special contain since the tuple might contain NodeOutput which overrides the __eq__ and returns a _BinaryOperand
+    def __special_contains__(self, item: object, list_ : list) -> bool:
+        if isinstance(item, NodeInputOutput):
+            return any(NodeInputOutput.__eq__(item, list_item) for list_item in list_)
+        else:
+            return item in list_
     
 class NodeDict(object):
     def __init__(self, owner : object, keys : Iterable, iterable : Iterable) -> None:
