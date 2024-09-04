@@ -80,10 +80,6 @@ class ProcessNode(object):
     @property
     def has_verbose_option(self):
         return "verbose" in inspect.getfullargspec(self._run).args
-
-    @property
-    def has_nr_processes_option(self):
-        return "nr_processes" in inspect.getfullargspec(self._run).args
     
     @description.setter
     def description(self, val : str) -> None:
@@ -145,7 +141,7 @@ class ProcessNode(object):
     def _run(self, in_1, in_2, in_3 = None) -> tuple:
         return tuple(None for out in self.outputs)
     
-    def run(self, ignore_cache : bool = False, update_cache : bool = False, verbose : bool = False, nr_processes : int = None, **input_dict) -> NodeRunOutput:
+    def run(self, ignore_cache : bool = False, update_cache : bool = False, verbose : bool = False, **input_dict) -> NodeRunOutput:
         # check inputs
         self._checkRunInputs(input_dict)
         # # add non mandatory inputs
@@ -176,8 +172,6 @@ class ProcessNode(object):
                     run_kwds["update_cache"] = update_cache
                 if self.has_verbose_option:
                     run_kwds["verbose"] = verbose
-                if self.has_nr_processes_option:
-                    run_kwds["nr_processes"] = nr_processes
                 output_tuple = self._run(**run_kwds, **input_dict)
             except Exception as e:
                 raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e

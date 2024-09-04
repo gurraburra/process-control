@@ -68,7 +68,7 @@ class ProcessWorkflow(ProcessNode):
         return tuple(self._internal_data_map_in[self].keys())
     
     
-    def _run(self, ignore_cache : bool, update_cache : bool, verbose : bool, nr_processes : int, **input_dict) -> tuple:
+    def _run(self, ignore_cache : bool, update_cache : bool, verbose : bool, **input_dict) -> tuple:
         # check nodes intialized
         if not self._nodes_init:
             raise RuntimeError(f"Nodes of workflow has not been initalized.")
@@ -81,16 +81,16 @@ class ProcessWorkflow(ProcessNode):
         for order in range(1, max(self.execution_order, default=-1) + 1):
             self._executeNodes(
                     tuple(node_idx for node_idx, node_order in enumerate(self.execution_order) if node_order == order), 
-                        input_data_transfer, ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose, nr_processes=nr_processes)
+                        input_data_transfer, ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose)
 
         # return workflow inputs from its internal nodes
         return tuple(input_data_transfer[self][output] for output in self.outputs)
 
 
-    def _executeNodes(self, node_idxs : tuple[int], input_data_transfer : dict, ignore_cache : bool, update_cache : bool, verbose : bool, nr_processes : int):
+    def _executeNodes(self, node_idxs : tuple[int], input_data_transfer : dict, ignore_cache : bool, update_cache : bool, verbose : bool):
         for node_idx in node_idxs:
             node = self.nodes[node_idx]
-            self._transferNodeOutputs(node.run(ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose, nr_processes=nr_processes, **input_data_transfer[node]), input_data_transfer)
+            self._transferNodeOutputs(node.run(ignore_cache=ignore_cache, update_cache=update_cache, verbose=verbose, **input_data_transfer[node]), input_data_transfer)
 
     def _transferNodeOutputs(self, node_output : NodeRunOutput, input_data_transfer : dict) -> None:
         for output_str, transfer_dict in self._internal_data_map_out[node_output._owner].items():

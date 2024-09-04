@@ -23,7 +23,7 @@ class IteratingNode(ProcessNode):
         the inputs of the iterating_node to be iterated over
     parallel_processing: 
         whether not to execute the iteration in parallel processes
-    nr_processes: 
+    nr_parallel_processes: 
         number of process if parallel_processing is True, negative number signals to use the maxmimum number of available cores
     
     Attributes:
@@ -32,15 +32,12 @@ class IteratingNode(ProcessNode):
         outputs:
             the outputs from the iterating node are appended to an iteration list, hence they have '_list' appended to their name
     """
-    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", exclude_outputs : tuple[str] = tuple(), parallel_processing : bool = False, nr_processes : int = -1, show_pbar : bool = True, description : str = "") -> None:
+    def __init__(self, iterating_node : ProcessNode, iterating_inputs : tuple[str], iterating_name : str = "", exclude_outputs : tuple[str] = tuple(), description : str = "") -> None:
         # call super init
         super().__init__(description, create_input_output_attr=False)
         # save arguments
         self._iterating_node = iterating_node
         self._iterating_name = iterating_name
-        self.parallel_processing = parallel_processing
-        self.nr_processes = nr_processes
-        self.show_pbar = show_pbar
         
         # make sure iterating inputs is a list
         if isinstance(iterating_inputs, str):
@@ -61,8 +58,8 @@ class IteratingNode(ProcessNode):
         # create tuples
         self._iterating_inputs = tuple(iterating_inputs)
         self._mandatory_inputs = tuple(mandatory_inputs)
-        self._non_mandatory_inputs = tuple(non_mandatory_inputs)
-        self._default_inputs = tuple(default_inputs)
+        self._non_mandatory_inputs = tuple(non_mandatory_inputs) + (self._listName("nr_parallel_processes"), self._listName("show_pbar"))
+        self._default_inputs = tuple(default_inputs) + (0, True)
 
         # exclude outputs
         if isinstance(exclude_outputs, str):
@@ -82,7 +79,9 @@ class IteratingNode(ProcessNode):
     def outputs(self) -> tuple:
         return self._outputs
 
-    def _run(self, verbose : bool, nr_processes : int, **input_dict):
+    def _run(self, verbose : bool, **input_dict):
+        # get iterNode specific input
+        nr_parallel_processes, show_pbar = input_dict.pop(self._listName("nr_parallel_processes")), input_dict.pop(self._listName("show_pbar"))
         # check input_dict
         nr_iter, moved_iterating_inputs = self._checkInput(input_dict)
         # handle zero iterations
@@ -97,14 +96,16 @@ class IteratingNode(ProcessNode):
         for iter_input in iterating_inputs:
             common_input_dict.pop(self._listName(iter_input))
         # check nr processes
-        if nr_processes is not None:
-            self.nr_processes = nr_processes
+        if nr_parallel_processes == -1:
+            nr_parallel_processes = cpu_count()
+        else:
+            nr_parallel_processes = int(nr_parallel_processes)
         # Check if parallel processing or not
-        if self.parallel_processing and self.nr_processes > 1 and nr_iter > 1:
+        if nr_parallel_processes >= 1 and nr_iter > 1:
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
-            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, self.nr_processes, arg_values_list)]))
+            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, nr_parallel_processes, arg_values_list)]))
             # receive value threads (separete recv threads are needed for pipe not to hang when writing large data)
             recv_threads = [None] * len(processes)
             recv_results = [None] * len(processes)
@@ -112,7 +113,7 @@ class IteratingNode(ProcessNode):
                 recv_threads[i] = Thread(target=self._pipeRecv, args=(pipes[i], recv_results, i))
                 recv_threads[i].start()
             # process to update tqdm process bar
-            pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, nr_iter, f"{self} (parallel - {self.nr_processes})", self._show_pbar, verbose))
+            pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, nr_iter, f"{self} (parallel - {nr_parallel_processes})", show_pbar, verbose))
             # start processes
             pbar_thread.start()
             # wait for recv result
@@ -140,7 +141,7 @@ class IteratingNode(ProcessNode):
                 output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(iterating_inputs, args)})
                 return output[self.include_outputs]
             # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values()
-            if self._show_pbar and verbose:
+            if show_pbar and verbose:
                 mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
                 mapped = map(f_single_iteration, zip(*arg_values_list))
@@ -281,26 +282,6 @@ class IteratingNode(ProcessNode):
     def parallel_processing(self, val) -> None:
         self._parallel_processing = bool(val)
     
-    @property
-    def nr_processes(self) -> int:
-        return self._nr_processes
-    
-    @nr_processes.setter
-    def nr_processes(self, val : int) -> None:
-        if val <= -1:
-            # raise ValueError("Number of threads needs to be larger than 0.")
-            self._nr_processes = cpu_count()
-        else:
-            self._nr_processes = int(val)
-    
-    @property
-    def show_pbar(self) -> bool:
-        return self._show_pbar
-
-    @show_pbar.setter
-    def show_pbar(self, val) -> None:
-        self._show_pbar = bool(val)
-
     # modified properties
     @property
     def inputs(self) -> tuple:
