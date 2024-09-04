@@ -36,35 +36,80 @@ class ProcessNode(object):
     _run: 
         Node specific run function, needs to be provided by each subclass of ProcessNode
     """
+    # no default condition
+    class _UniqueVal:
+        pass
+    no_default_input = _UniqueVal()
+
     def __init__(self, description : str = "", create_input_output_attr : bool = True) -> None:
         self._description = description
         self._cache_input = False
         self._cache_output = False
         self._input_cache = None
         self._output_cache = None
+        # object set inputs
+        self.__object_specific_default_inputs = False
+        self.__object_mandatory_inputs = None
+        self.__object_non_mandatory_inputs = None
+        self.__object_default_inputs = None
         if create_input_output_attr:
             self._createInputOutputAttributes()
 
+    # by class specifiec mandatory/non_mandatory/default inputs
     @property
-    def inputs(self) -> tuple:
+    def class_inputs(self) -> tuple:
         return tuple(inspect.getfullargspec(self._run).args[1:])
     
     @property
-    def mandatory_inputs(self) -> tuple:
-        return self.inputs[:len(self.inputs)-len(self.default_inputs)]
+    def class_mandatory_inputs(self) -> tuple:
+        return self.class_inputs[:len(self.class_inputs)-len(self.class_default_inputs)]
     
     @property
-    def default_inputs(self) -> tuple:
+    def class_non_mandatory_inputs(self) -> tuple:
+        return self.class_inputs[len(self.class_inputs)-len(self.class_default_inputs):]
+    
+    @property
+    def class_default_inputs(self) -> tuple:
         if self._run.__defaults__ is None:
             def_args = tuple()
         else:
             def_args = self._run.__defaults__
         return def_args
     
+    # possibly object-specific mandatory/non_mandatory/default inputs
+    @property
+    def object_specific_default_inputs(self):
+        return self.__object_specific_default_inputs
+        
+    @property
+    def inputs(self) -> tuple:
+        if self.object_specific_default_inputs:
+            return self.mandatory_inputs + self.non_mandatory_inputs
+        else:
+            return self.class_inputs
+    
+    @property
+    def mandatory_inputs(self) -> tuple:
+        if self.object_specific_default_inputs:
+            return self.__object_mandatory_inputs
+        else:
+            return self.class_mandatory_inputs
+    
     @property
     def non_mandatory_inputs(self) -> tuple:
-        return self.inputs[len(self.inputs)-len(self.default_inputs):]
+        if self.object_specific_default_inputs:
+            return self.__object_non_mandatory_inputs
+        else:
+            return self.class_non_mandatory_inputs
     
+    @property
+    def default_inputs(self) -> tuple:
+        if self.object_specific_default_inputs:
+            return self.__object_default_inputs
+        else:
+            return self.class_default_inputs
+        
+    # other properties
     @property
     def description(self) -> str:
         return self._description
@@ -127,10 +172,76 @@ class ProcessNode(object):
             raise RuntimeError(f"Node has no cached data.")
         else:
             return self._output_cache
-        
+    
+    # instance methods
     def resetCache(self) -> None:
         self._input_cache = None
         self._output_cache = None
+    
+    # change which values to use: class or object based
+    def __setObjectSpecficDefaultInputs(self, set : bool):
+        # store bool
+        self.__object_specific_default_inputs = bool(set)
+        # check
+        if self.__object_specific_default_inputs:
+            # store class values if None
+            if self.__object_default_inputs is None:
+                self.__object_default_inputs = self.class_default_inputs
+            if self.__object_non_mandatory_inputs is None:
+                self.__object_non_mandatory_inputs = self.class_non_mandatory_inputs
+            if self.__object_mandatory_inputs is None:
+                self.__object_mandatory_inputs = self.class_mandatory_inputs
+        else:
+            # rest to None
+            self.__object_default_inputs = None
+            self.__object_non_mandatory_inputs = None
+            self.__object_mandatory_inputs = None
+
+    # change default inputs
+    def setDefaultInputs(self, __reset__ = False, **default_inputs):
+        # check reset
+        if __reset__:
+            # change back to use class specific values
+            self.__setObjectSpecficDefaultInputs(False)
+        # if default inputs given
+        if default_inputs:
+            # tell object to use object specific values values
+            self.__setObjectSpecficDefaultInputs(True)
+            # create editable list
+            obj_mandatory_inputs = list(self.mandatory_inputs)
+            obj_non_mandatory_inputs = list(self.non_mandatory_inputs)
+            obj_default_inputs = list(self.default_inputs)
+            # loop through inputs
+            for input, default_val in default_inputs.items():
+                # check if mandatory
+                if input in obj_mandatory_inputs:
+                    # move to non mandatory if default val is not self.no_default_input
+                    if default_val is not self.no_default_input:
+                        # remove mandatory
+                        obj_mandatory_inputs.remove(input)
+                        # add non mandatory
+                        obj_non_mandatory_inputs.append(input)
+                        obj_default_inputs.append(default_val)
+                elif input in obj_non_mandatory_inputs:
+                    # if input already is a non mandatory input, update default, if default val is not self.no_default_input
+                    if default_val is not self.no_default_input:
+                        obj_default_inputs[obj_non_mandatory_inputs.index(input)] = default_val
+                    # else move to mandotory inputs
+                    else:
+                        # add to mandatory
+                        obj_mandatory_inputs.append(input)
+                        # remove from non mandatory (order is important)
+                        del obj_default_inputs[obj_non_mandatory_inputs.index(input)]
+                        obj_non_mandatory_inputs.remove(input)
+                else:
+                    raise ValueError(f"Node {self} has no input '{input}'")
+            self.__object_default_inputs = tuple(obj_default_inputs)
+            self.__object_non_mandatory_inputs = tuple(obj_non_mandatory_inputs)
+            self.__object_mandatory_inputs = tuple(obj_mandatory_inputs)
+        # return reference to self
+        return self
+
+
 
     @property 
     @abstractmethod
@@ -285,9 +396,10 @@ class ProcessNode(object):
             #     output_cache[i] = v
         self._output_cache = NodeRunOutput(self, self.outputs, output.copy())
 
-    def _createInputOutputAttributes(self) -> None:
+    def _createInputOutputAttributes(self, **default_inputs) -> None:
         self.input = NodeMapping(self, self.inputs, tuple(NodeInput(self, input) for input in self.inputs), True)
         self.output = NodeMapping(self, self.outputs, tuple(NodeOutput(self, output) for output in self.outputs), False)
+        self.setDefaultInputs(**default_inputs)
 
 
     def __str__(self):

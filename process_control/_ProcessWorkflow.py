@@ -102,19 +102,19 @@ class ProcessWorkflow(ProcessNode):
 
     # Update ProcessNode Attributes
     @property
-    def inputs(self) -> tuple:
+    def class_inputs(self) -> tuple:
         return self.mandatory_inputs + self.non_mandatory_inputs #tuple(self._internal_data_map_out[f"{self.name}:in"].keys())
     
     @property
-    def mandatory_inputs(self) -> tuple:
+    def class_mandatory_inputs(self) -> tuple:
         return self._mandatory_inputs
     
     @property
-    def non_mandatory_inputs(self) -> tuple:
+    def class_non_mandatory_inputs(self) -> tuple:
         return self._non_mandatory_inputs
 
     @property
-    def default_inputs(self) -> tuple:
+    def class_default_inputs(self) -> tuple:
         return self._default_inputs
     
     # Workflow specific attributes

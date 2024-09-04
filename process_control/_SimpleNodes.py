@@ -81,11 +81,11 @@ class CustomNode(ProcessNode):
 
     # redefine properties
     @property
-    def inputs(self) -> tuple:
+    def class_inputs(self) -> tuple:
         return tuple(inspect.getfullargspec(self._run_function).args)
     
     @property
-    def default_inputs(self) -> tuple:
+    def class_default_inputs(self) -> tuple:
         if self._run_function.__defaults__ is None:
             def_args = tuple()
         else:
@@ -106,17 +106,17 @@ class CustomNode(ProcessNode):
 #         return self._outputs
     
 #     @property
-#     def inputs(self) -> tuple:
+#     def class_inputs(self) -> tuple:
 #         return self._outputs
     
 #     @property
-#     def mandatory_inputs(self) -> tuple:
+#     def class_mandatory_inputs(self) -> tuple:
 #         return self.inputs
     
 #     @property
-#     def non_mandatory_inputs(self) -> tuple:
+#     def class_non_mandatory_inputsinputs(self) -> tuple:
 #         return tuple()
     
 #     @property
-#     def default_inputs(self) -> tuple:
+#     def class_default_inputs(self) -> tuple:
 #         return tuple()
