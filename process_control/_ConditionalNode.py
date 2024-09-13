@@ -57,14 +57,14 @@ class ConditionalNode(ProcessNode):
                 for node_output in node_outputs:
                     assert isinstance(node_output, NodeOutput)
                     assert node_output.owner in internal_map_out, f"Incorrect node output {node_output}, node not among conditional nodes."
-                    internal_map_out[node_output.owner][cond_output] = node_output.name
+                    internal_map_out[node_output.owner][cond_output] = node_output
 
             # check all nodes has maps to outputs
             for node, mapping in internal_map_out.items():
                 for cond_output in output_mapping.keys():
                     if cond_output not in mapping:
                         assert cond_output in node.outputs, f"Conditional node {node} is missing output '{cond_output}'."
-                        internal_map_out[node][cond_output] = cond_output
+                        internal_map_out[node][cond_output] = node.output[cond_output]
             # save internal map
             self._internal_map_out = internal_map_out
 
@@ -75,7 +75,7 @@ class ConditionalNode(ProcessNode):
                 if self._internal_map_out is not None:
                     outputs.append(frozenset(self._internal_map_out[node].keys()))
                 else:
-                    outputs.append(node.outputs)
+                    outputs.append(frozenset(node.outputs))
         nr_outputs = len(set(outputs))
         if nr_outputs > 1:
             raise ValueError("Conditional nodes contains different outputs.")
@@ -100,8 +100,6 @@ class ConditionalNode(ProcessNode):
         else:
             # create internal map from nodes to outputs of conditional node
             internal_map_in = {node : {} for node in condition_node_map.values() if node is not None}
-            # list with conditional node outputs
-            inputs = []
             # loop through output mapping
             for cond_input, node_inputs in input_mapping.items():
                 # make sure they have right types
@@ -137,11 +135,13 @@ class ConditionalNode(ProcessNode):
                         pass
                     # check if mandatory input exist in non mandatory inputs
                     elif mand_input in self._non_mandatory_inputs:
+                        # leave it there
+                        pass
                         # change it to mandatory
-                        idx_cond = self._non_mandatory_inputs.index(mand_input)
-                        del self._non_mandatory_inputs[idx_cond]
-                        del self._default_inputs[idx_cond]
-                        self._mandatory_inputs.append(mand_input)
+                        # idx_cond = self._non_mandatory_inputs.index(mand_input)
+                        # del self._non_mandatory_inputs[idx_cond]
+                        # del self._default_inputs[idx_cond]
+                        # self._mandatory_inputs.append(mand_input)
                     # if not previously added -> add it now
                     else:
                         self._mandatory_inputs.append(mand_input)
@@ -152,13 +152,17 @@ class ConditionalNode(ProcessNode):
                         non_mand_input = self._internal_map_in[node][non_mand_input]
                     # if non mandatory input exist as mandatory input -> leave it there
                     if non_mand_input in self._mandatory_inputs:
-                        pass
+                        # change to non mandatory
+                        idx_cond = self._mandatory_inputs.index(non_mand_input)
+                        del self._mandatory_inputs[idx_cond]
+                        self._non_mandatory_inputs.append(non_mand_input)
+                        self._default_inputs.append(default_input)
                     # if in non mandatory input -> check if default value is same, otherwise notify user
                     elif non_mand_input in self._non_mandatory_inputs:
                         idx_cond = self._non_mandatory_inputs.index(non_mand_input)
                         if self._default_inputs[idx_cond] != f"--depends on condition '{self._conditional_input}'--" and self._default_inputs[idx_cond] != default_input:
                             self._default_inputs[idx_cond] = f"--depends on condition '{self._conditional_input}'--"
-                            print(f"Different default values detected for input: {non_mand_input}.")
+                            # print(f"Different default values detected for input: {non_mand_input}.")
                     # if not in either mandatory or non mandatory inputs -> add it to non mandatory inputs
                     else:
                         self._non_mandatory_inputs.append(non_mand_input)
@@ -210,7 +214,7 @@ class ConditionalNode(ProcessNode):
             # check if internal map out exist
             if self._internal_map_out is not None:
                 # if yes -> use it to map output from node
-                return tuple(result[self._internal_map_out[conditional_node][out]] for out in self.outputs)
+                return tuple(self._internal_map_out[conditional_node][cond_out]._getData(result[self._internal_map_out[conditional_node][cond_out].name]) for cond_out in self.outputs)
             else:
                 # if not -> make sure order of outputs corresponds to self.outputs
                 return tuple(result[out] for out in self.outputs)
