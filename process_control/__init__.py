@@ -3,4 +3,5 @@ from ._IterNode import IteratingNode
 from ._ProcessWorkflow import ProcessWorkflow
 from ._SimpleNodes import CustomNode, ValueNode
 from ._ConditionalNode import ConditionalNode
+from ._RecursiveNode import RecursiveNode
 
