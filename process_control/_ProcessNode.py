@@ -428,11 +428,14 @@ class ProcessNode(object):
                 setattr(result, k, None)
         return result
 
-    def copy(self):
-        return self.deepcopy()
+    def copy(self, description = None):
+        return self.deepcopy(description)
     
-    def deepcopy(self):
-        return copy.deepcopy(self)
+    def deepcopy(self, description = None):
+        new_obj = copy.deepcopy(self)
+        if description is not None:
+            new_obj.description = description
+        return new_obj
 
     def __getstate__(self):
         d = self.__dict__
