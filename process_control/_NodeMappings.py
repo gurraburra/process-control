@@ -125,8 +125,8 @@ class NodeDict(object):
             raise AttributeError(f"key: '{key}' not valid string")            
         
     def __iter__(self):
-        for data in self.values():
-            yield data
+        for key in self.keys():
+            yield key
         
     def __str__(self) -> str:
         return f"{self.keys()} -> {self.values()}"
