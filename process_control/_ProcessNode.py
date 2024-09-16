@@ -467,8 +467,11 @@ class NodeOutput(NodeInputOutput):
     def __call__(self, *args: warnings.Any, **kwds: warnings.Any) -> warnings.Any:
         return NodeOutput(self.owner, self.name, self._attributes + (self.OutputMethod(args, kwds), ))
     
-    def __getitem__(self,index):
+    def __getitem__(self, index):
         return NodeOutput(self.owner, self.name, self._attributes + (self.OutputItem(index), ))
+    
+    def __neg__(self):
+        return self.__getattr__('__neg__').__call__()
     
     def __eq__(self, other : object):
         return super().__eq__(other) and self._attributes == other._attributes
