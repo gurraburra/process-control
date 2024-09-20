@@ -21,3 +21,6 @@ dynamic = ["version"]
 
 [tool.setuptools.dynamic]
 version = {attr = "process_control._version.__version__"}
+
+[tool.pyright]
+include = ["src"]
