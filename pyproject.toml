@@ -2,3 +2,22 @@
 [build-system]
 requires = ["setuptools >= 64"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "process_control"
+authors = [
+    {name = "Gustav Magnussin", email = "gustav.magnusson@liu.se"},
+]
+description = "Process control package"
+requires-python = ">=3.8"
+keywords = ["process", "control"]
+license = {text = "BSD-3-Clause"}
+dependencies = [
+    "numpy",
+    "tqdm",
+    "multiprocess"
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "process_control._version.__version__"}

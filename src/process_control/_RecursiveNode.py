@@ -91,11 +91,11 @@ class RecursiveNode(ProcessNode):
         if self._break_recursion_node not in recursion_nodes:
             raise ValueError("no recursive inputs found for 'break_recursion_node'")
         # add non recursive inputs for recursive node
-        for input in self._recursive_node.input.values():
+        for input in self._recursive_node.input._values():
             if input not in self._recursive_input_map:
                 self._addRecursiveInput(input, None)
         # add non recursive inputs for break recusion node
-        for input in self._break_recursion_node.input.values():
+        for input in self._break_recursion_node.input._values():
             if input not in self._recursive_input_map:
                 self._addRecursiveInput(input, None)
         # check for redudant recursion mapping
@@ -173,11 +173,11 @@ class RecursiveNode(ProcessNode):
                     self._default_inputs.append(default_input)
         
         # check if __nr_recursive_runs__ in inputs, then remove since its provided by self
-        if '__nr_recursive_runs__' in self._mandatory_inputs:
-            idx_cond = self._mandatory_inputs.index('__nr_recursive_runs__')
+        if 'Init___nr_recursive_runs__' in self._mandatory_inputs:
+            idx_cond = self._mandatory_inputs.index('Init___nr_recursive_runs__')
             del self._mandatory_inputs[idx_cond]
-        elif '__nr_recursive_runs__' in self._mandatory_inputs:
-            idx_cond = self._non_mandatory_inputs.index('__nr_recursive_runs__')
+        elif 'Init___nr_recursive_runs__' in self._mandatory_inputs:
+            idx_cond = self._non_mandatory_inputs.index('Init___nr_recursive_runs__')
             del self._non_mandatory_inputs[idx_cond]
             del self._default_inputs[idx_cond]
 
@@ -187,9 +187,9 @@ class RecursiveNode(ProcessNode):
         self._default_inputs = tuple(self._default_inputs)
 
         # outputs -> add all as long as not break recursion node output
-        self._outputs = tuple(f"Recursive_{output.name}" for output in self._recursive_node.output.values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output))
+        self._outputs = tuple(f"Rec_{output.name}" for output in self._recursive_node.output._values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output))
         if self._recursive_node is not self._break_recursion_node and self._include_break_recursion_output:
-            self._outputs += tuple(f"Break_{output.name}" for output in self._break_recursion_node.output.values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output))
+            self._outputs += tuple(f"Break_{output.name}" for output in self._break_recursion_node.output._values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output))
         self._outputs += (tmp_output.name,)
 
         # create attributes
@@ -199,13 +199,13 @@ class RecursiveNode(ProcessNode):
         # Architectures
         # input_dict -> recursive_input_map -> node_input -> node.run(...) -> node_output -> input_dict -> ...
         # add nr recursive runs to input since its a recursive output coming from self
-        input_dict['__nr_recursive_runs__'] = 0
+        input_dict['Init___nr_recursive_runs__'] = 0
         # create run inputs/outputs 
-        node_output = {self._break_recursion_node : {output.name : None for output in self._break_recursion_node.output.values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output)}}
+        node_output = {self._break_recursion_node : {output.name : None for output in self._break_recursion_node.output._values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output)}}
         node_input = {self._break_recursion_node : {input : None for input in self._break_recursion_node.inputs}} 
         # if recursive and break node not the same
         if self._recursive_node is not self._break_recursion_node:
-            node_output.update({self._recursive_node : {output.name : None for output in self._recursive_node.output.values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output)}})
+            node_output.update({self._recursive_node : {output.name : None for output in self._recursive_node.output._values() if not NodeInputOutput.__eq__(output, self._break_recursion_node_output)}})
             node_input.update({self._recursive_node : {inputs : None for inputs in self._recursive_node.inputs}})
         # add output from self
         node_output.update({self : {"__nr_recursive_runs__" : 0}})
@@ -219,7 +219,7 @@ class RecursiveNode(ProcessNode):
         # check verbose
         if verbose:
             if isinstance(self._break_recursion_node, self._nrRecursion):
-                total = input_dict['nr_recursion']
+                total = input_dict['nr_recursions']
             else:
                 total = None
             pbar = tqdm(desc = f"{self}", miniters = 1, total = total)
@@ -227,24 +227,24 @@ class RecursiveNode(ProcessNode):
             pbar = None
         while True:
             # create input to run break recursion node
-            input_break_node = node_input[self._break_recursion_node] # {input.name : input_dict[self._retrieveInputName(input)] for input in self._break_recursion_node.input.values()}
+            input_break_node = node_input[self._break_recursion_node] # {input.name : input_dict[self._retrieveInputName(input)] for input in self._break_recursion_node.input._values()}
             # run break recursion node
             break_run_output = self._break_recursion_node.run(verbose=verbose, **input_break_node)
+            # update output from break recursion node
+            for b_output in break_run_output._keys() / self._break_recursion_node_output.name:
+                node_output[self._break_recursion_node][b_output] = break_run_output[b_output]
             # check if recursion should stop
             if self._break_recursion_node_output._getData(break_run_output[self._break_recursion_node_output.name]):
                 # break before updating the outputs since the previous outputs should be used
                 break
             else:
-                # update output from break recursion node
-                for b_output in break_run_output.keys() / self._break_recursion_node_output.name:
-                    node_output[self._break_recursion_node][b_output] = break_run_output[b_output]
                 # check if recursive node is different from break node
                 if self._recursive_node is not self._break_recursion_node:
                     # create input for recursive node
-                    input_rec_node = node_input[self._recursive_node] #{input.name : input_dict[self._retrieveInputName(input)] for input in self._recursive_node.input.values()}
+                    input_rec_node = node_input[self._recursive_node] #{input.name : input_dict[self._retrieveInputName(input)] for input in self._recursive_node.input._values()}
                     # run recursive node
                     recursive_run_output = self._recursive_node.run(verbose=verbose, **input_rec_node)
-                    for r_output in recursive_run_output.keys():
+                    for r_output in recursive_run_output._keys():
                         node_output[self._recursive_node][r_output] = recursive_run_output[r_output]
             # update output from self
             node_output[self]['__nr_recursive_runs__'] += 1
@@ -268,6 +268,13 @@ class RecursiveNode(ProcessNode):
                     node_input[rec_input.owner][rec_input.name] = input_dict[self._retrieveInputName(rec_input)]
                 else: # is None -> pass
                     pass
+        # if break node and recursive node are the same -> nr recursion needs update
+        if self._break_recursion_node is self._recursive_node:
+            # update output from self
+            node_output[self]['__nr_recursive_runs__'] += 1
+            # update pbar
+            if pbar is not None:
+                pbar.update()
         # close pbar
         if pbar is not None:
             pbar.close()
@@ -289,7 +296,7 @@ class RecursiveNode(ProcessNode):
         # check if input recursive mapped to an output
         if isinstance(self._recursive_input_map[input], NodeOutput):
             # return outputs name
-            return self._recursive_input_map[input].name
+            return "Init_" + self._recursive_input_map[input].name
         # check if recursively mapped to an input
         elif isinstance(self._recursive_input_map[input], NodeInput):
             # get name of that input
@@ -302,8 +309,8 @@ class RecursiveNode(ProcessNode):
     class _nrRecursion(ProcessNode):
         outputs = ("stop",)
     
-        def _run(self, nr_recursion : int, __nr_recursive_runs__ : int):
-            return __nr_recursive_runs__ >= nr_recursion, 
+        def _run(self, nr_recursions : int, __nr_recursive_runs__ : int):
+            return __nr_recursive_runs__ >= nr_recursions, 
 
     @property
     def outputs(self) -> tuple:

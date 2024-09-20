@@ -66,9 +66,9 @@ class IteratingNode(ProcessNode):
             exclude_outputs = (exclude_outputs,)
         # check all exclude outputs is in interating node
         for exclude in exclude_outputs:
-            if not exclude in iterating_node.output.keys():
+            if not exclude in iterating_node.output._keys():
                 raise ValueError(f"Output '{exclude}' to exclude does not exist in node: {iterating_node}.")
-        self.include_outputs = iterating_node.output.keys() - exclude_outputs
+        self.include_outputs = iterating_node.output._keys() - exclude_outputs
 
         # create outputs tuple and ad _list to all names
         self._outputs = tuple(self._listName(output) for output in self.include_outputs)

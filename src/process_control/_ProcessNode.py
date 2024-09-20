@@ -6,6 +6,7 @@ import numpy as np
 import copy
 from ._NodeMappings import NodeRunOutput, NodeRunInput, NodeMapping, NodeInputOutput
 import operator
+from functools import partial
 
 class ProcessNode(object):
     """
@@ -358,7 +359,7 @@ class ProcessNode(object):
     
     def _inputEquality(self, dict_ : dict) -> bool:
         if self._input_cache is not None:
-            if dict_.keys() != set(self._input_cache.keys()):
+            if dict_.keys() != set(self._input_cache._keys()):
                 return False
             for key in dict_:
                 # allow nan values
@@ -447,6 +448,70 @@ class ProcessNode(object):
 class NodeInput(NodeInputOutput):
     pass
 
+# binary and unitary operators
+def unitary_binary_operators(cls):
+    for binop in ['__add__','__sub__','__mul__','__truediv__','__floordiv__','__div__','__lt__','__le__','__gt__','__ge__','__eq__', '__ne__','__and__','__or__','__xor__','__mod__','__pow__','__rshift__','__lshift__']:
+        setattr(cls, binop, cls._make_binop(binop))
+    for uniop in ['__invert__', '__neg__', '__pos__']:
+        setattr(cls, uniop, cls._make_uniop(uniop))
+    return cls
+
+# custom unitary and binary operators
+class MulInfix(object):
+    def __init__(self, func):
+        self.func = func
+    def __mul__(self, other):
+        return self.func(other)
+    def __rmul__(self, other):
+        return MulInfix(partial(self.func, other))
+    def __call__(self, v1, v2):
+        return self.func(v1, v2)
+    
+class MulPrefix(object):
+    def __init__(self, func):
+        self.func = func
+    def __mul__(self, other):
+        return self.func(other)
+    def __call__(self, v1, v2):
+        return self.func(v1, v2)
+    
+@MulInfix
+def _and_(x, y):
+    assert isinstance(x, NodeOutput)
+    if not x._checkBinaryOperand(y):
+        return NotImplemented
+    def func(v1, v2):
+        return v1 and v2
+    return _BinaryOperand(x, y, func).output.output
+
+@MulInfix
+def _or_(x, y):
+    assert isinstance(x, NodeOutput)
+    if not x._checkBinaryOperand(y):
+        return NotImplemented
+    def func(v1, v2):
+        return v1 or v2
+    return _BinaryOperand(x, y, func).output.output
+
+@MulInfix
+def _xor_(x, y):
+    assert isinstance(x, NodeOutput)
+    if not x._checkBinaryOperand(y):
+        return NotImplemented
+    def func(v1, v2):
+        return bool(v1) != bool(v2)
+    return _BinaryOperand(x, y, func).output.output
+
+@MulPrefix
+def not_(x):
+    assert isinstance(x, NodeOutput)
+    if not x._checkUnitaryOperand():
+        return NotImplemented
+    def func(v1):
+        return not v1
+    return _UnitaryOperand(x, func).output.output
+
+@unitary_binary_operators
 class NodeOutput(NodeInputOutput):
     def __init__(self, owner: ProcessNode, name: str, attributes = tuple()) -> None:
         super().__init__(owner, name)
@@ -470,14 +535,12 @@ class NodeOutput(NodeInputOutput):
     def __getitem__(self, index):
         return NodeOutput(self.owner, self.name, self._attributes + (self.OutputItem(index), ))
     
-    def __neg__(self):
-        return self.__getattr__('__neg__').__call__()
-    
-    def __eq__(self, other : object):
-        return super().__eq__(other) and self._attributes == other._attributes
-    
     def __hash__(self) -> int:
         return hash((self.owner, self.name, self._attributes))
+    
+    # implent iter to tell python this class in not iterable
+    def __iter__(self):
+        raise TypeError(f"'{type(self).__name__}' object is not iterable")
     
     def copy(self) -> NodeOutput:
         assert self.owner is None, f"Only allowed to copy unnassigned outputs."
@@ -485,50 +548,35 @@ class NodeOutput(NodeInputOutput):
     
     def _checkBinaryOperand(self, other):
         if not isinstance(other, NodeOutput):
-            # from ._SimpleNodes import ValueNode
-            # other = ValueNode(other).output.value
-            raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
+            return False
+            # raise ValueError("Can only combine a NodeOutput with another NodeOutput.")
         # check if blank output given, marked that name set to None
-        if self.name is None or other.name is None:
+        elif self.name is None or other.name is None:
             raise ValueError("Blank outputs are not valid in binary operations.")
-        return other
-    def __add__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__add__").output.output
-    def __sub__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__sub__").output.output
-    def __mul__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__mul__").output.output
-    def __truediv__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__truediv__").output.output
-    def __floordiv__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__floordiv__").output.output
-    def __div__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__div__").output.output
-    def __lt__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__lt__").output.output
-    def __le__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__le__").output.output
-    def __gt__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__gt__").output.output
-    def __ge__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__ge__").output.output
-    def __eq__(self, other : object):
-        other = self._checkBinaryOperand(other)
-        return _BinaryOperand(self, other, "__eq__").output.output
+        else:
+            return True
     
-    # implent iter to tell python this class in not iterable
-    def __iter__(self):
-        raise TypeError(f"'{type(self).__name__}' object is not iterable")
+    def _checkUnitaryOperand(self):
+        # check if blank output given, marked that name set to None
+        if self.name is None:
+            raise ValueError("Blank outputs are not valid in unitary operations.")
+        else:
+            return True
+        
+    @classmethod
+    def _make_binop(cls, operator):
+        def binop(self : NodeOutput, other):
+            if not self._checkBinaryOperand(other):
+                return NotImplemented
+            return _BinaryOperand(self, other, operator).output.output
+        return binop
+    
+    @classmethod
+    def _make_uniop(cls, operator):
+        def uniop(self : NodeOutput):
+            self._checkUnitaryOperand()
+            return _UnitaryOperand(self, operator).output.output
+        return uniop
     
     class AbstractAttribute(ABC):
         @abstractmethod
@@ -573,11 +621,31 @@ class NodeOutput(NodeInputOutput):
             
 class _BinaryOperand(ProcessNode):
     outputs = ("output",)
-    def __init__(self, input_1, input_2, operand : str, description: str = "", create_input_output_attr: bool = True) -> None:
+    def __init__(self, input_1, input_2, operand, description: str = "", create_input_output_attr: bool = True) -> None:
         super().__init__(description, create_input_output_attr)
-        self.operand = operand
+        if inspect.isfunction(operand):
+            self.operand = operand
+        elif isinstance(operand, str):
+            self.operand = getattr(operator, operand)
+        else:
+            raise ValueError(f"invalid operand: {operand}")
         self.input_1 = input_1
         self.input_2 = input_2
 
     def _run(self, input_1, input_2) -> tuple:
-        return getattr(operator, self.operand)(input_1, input_2)
+        return self.operand(input_1, input_2)
+    
+class _UnitaryOperand(ProcessNode):
+    outputs = ("output",)
+    def __init__(self, input_1, operand, description: str = "", create_input_output_attr: bool = True) -> None:
+        super().__init__(description, create_input_output_attr)
+        if inspect.isfunction(operand):
+            self.operand = operand
+        elif isinstance(operand, str):
+            self.operand = getattr(operator, operand)
+        else:
+            raise ValueError(f"invalid operand: {operand}")
+        self.input_1 = input_1
+
+    def _run(self, input_1) -> tuple:
+        return self.operand(input_1)

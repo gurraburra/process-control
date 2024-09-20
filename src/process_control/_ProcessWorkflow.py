@@ -1,6 +1,6 @@
 import re
 import numpy as np
-from ._ProcessNode import ProcessNode, _BinaryOperand, NodeOutput, NodeInput
+from ._ProcessNode import ProcessNode, _BinaryOperand, _UnitaryOperand, NodeOutput, NodeInput
 from ._NodeMappings import NodeRunOutput,  NodeMapping
 from ._SimpleNodes import ValueNode
 
@@ -284,21 +284,25 @@ class ProcessWorkflow(ProcessNode):
                 outputs.append(output)
                 inputs.append(input)
         # look for binary operand and add there dependencies 
-        def addOutputsInputsBinaryOperand(binary_output):
-            # check binary_output realy is binary
-            if isinstance(binary_output.owner, _BinaryOperand):
+        def addOutputsInputsUnitaryBinaryOperand(uni_bin_output):
+            # check uni_bin_output realy is binary
+            if isinstance(uni_bin_output.owner, _BinaryOperand):
                 # handle input 1
-                outputs.append(binary_output.owner.input_1)
-                inputs.append(binary_output.owner.input.input_1)
+                outputs.append(uni_bin_output.owner.input_1)
+                inputs.append(uni_bin_output.owner.input.input_1)
                 # handle input 2
-                outputs.append(binary_output.owner.input_2)
-                inputs.append(binary_output.owner.input.input_2)
+                outputs.append(uni_bin_output.owner.input_2)
+                inputs.append(uni_bin_output.owner.input.input_2)
                 # don't need the two lines below since appending new inputs 
                 # to the outputs list will make sure they are handled later
-                # addOutputsInputsBinaryOperand(binary_output.owner.input_1)
-                # addOutputsInputsBinaryOperand(binary_output.owner.input_2)
+                # addOutputsInputsBinaryOperand(uni_bin_output.owner.input_1)
+                # addOutputsInputsBinaryOperand(uni_bin_output.owner.input_2)
+            elif isinstance(uni_bin_output.owner, _UnitaryOperand):
+                # handle input 1
+                outputs.append(uni_bin_output.owner.input_1)
+                inputs.append(uni_bin_output.owner.input.input_1)
         for output in outputs:
-            addOutputsInputsBinaryOperand(output)
+            addOutputsInputsUnitaryBinaryOperand(output)
 
         # update owner of workflow inputs outputs, marked with owner = None
         for output, input in zip(outputs, inputs):

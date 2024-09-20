@@ -96,11 +96,11 @@ class NodeDict(object):
         return self.__owner
     
     #@property
-    def keys(self) -> Iterable:
+    def _keys(self) -> Iterable:
         return self.__keys
     
     #@property
-    def values(self) -> Iterable:
+    def _values(self) -> Iterable:
         return self.__tuple
         
     def __len__(self):
@@ -125,11 +125,11 @@ class NodeDict(object):
             raise AttributeError(f"key: '{key}' not valid string")            
         
     def __iter__(self):
-        for key in self.keys():
+        for key in self._keys():
             yield key
         
     def __str__(self) -> str:
-        return f"{self.keys()} -> {self.values()}"
+        return f"{self._keys()} -> {self._values()}"
     
     def __repr__(self) -> str:
         return self.__str__()
@@ -174,7 +174,7 @@ class NodeMapping(NodeDict):
             # raise ValueError(f"could not find {object.__getattribute__(self, '_NodeMapping__input_output_str')} in node {object.__getattribute__(self, '_NodeDict__owner')}") from e
 
     def __str__(self) -> str:
-        return f"{self._owner}: {self._input_output_str} -> {self.keys()}"
+        return f"{self._owner}: {self._input_output_str} -> {self._keys()}"
 
 class NodeRunOutput(NodeDict):
     def __getattr__(self, key):
@@ -189,9 +189,15 @@ class NodeRunOutput(NodeDict):
     
     def __repr__(self) -> str:
         outputs = []
-        for output, value in zip(self.keys(), self.values()):
+        for output, value in zip(self._keys(), self._values()):
             outputs.append(f"{output} -> {value}")
         return f"{self._owner}: Computed output\n" + "\n".join(outputs)
+    
+    def keys(self) -> Iterable:
+        return self._keys()
+    
+    def values(self) -> Iterable:
+        return self._values()
 
 class NodeRunInput(NodeDict):
     def __getattr__(self, key):
@@ -206,6 +212,12 @@ class NodeRunInput(NodeDict):
     
     def __repr__(self) -> str:
         inputs = []
-        for input, value in zip(self.keys(), self.values()):
+        for input, value in zip(self._keys(), self._values()):
             inputs.append(f"{input} -> {value}")
         return f"{self._owner}: Given input\n" + "\n".join(inputs)
+    
+    def keys(self) -> Iterable:
+        return self._keys()
+    
+    def values(self) -> Iterable:
+        return self._values()
