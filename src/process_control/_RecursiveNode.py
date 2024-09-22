@@ -229,7 +229,7 @@ class RecursiveNode(ProcessNode):
             # create input to run break recursion node
             input_break_node = node_input[self._break_recursion_node] # {input.name : input_dict[self._retrieveInputName(input)] for input in self._break_recursion_node.input._values()}
             # run break recursion node
-            break_run_output = self._break_recursion_node.run(verbose=verbose, **input_break_node)
+            break_run_output = self._break_recursion_node.run(ignore_cache=True, verbose=verbose, **input_break_node)
             # update output from break recursion node
             for b_output in break_run_output._keys() / self._break_recursion_node_output.name:
                 node_output[self._break_recursion_node][b_output] = break_run_output[b_output]
@@ -243,7 +243,7 @@ class RecursiveNode(ProcessNode):
                     # create input for recursive node
                     input_rec_node = node_input[self._recursive_node] #{input.name : input_dict[self._retrieveInputName(input)] for input in self._recursive_node.input._values()}
                     # run recursive node
-                    recursive_run_output = self._recursive_node.run(verbose=verbose, **input_rec_node)
+                    recursive_run_output = self._recursive_node.run(ignore_cache=True, verbose=verbose, **input_rec_node)
                     for r_output in recursive_run_output._keys():
                         node_output[self._recursive_node][r_output] = recursive_run_output[r_output]
             # update output from self
