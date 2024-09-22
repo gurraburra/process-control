@@ -284,9 +284,10 @@ class ProcessWorkflow(ProcessNode):
                 outputs.append(output)
                 inputs.append(input)
         # look for binary operand and add there dependencies 
+        added = []
         def addOutputsInputsUnitaryBinaryOperand(uni_bin_output):
             # check uni_bin_output realy is binary
-            if isinstance(uni_bin_output.owner, _BinaryOperand):
+            if isinstance(uni_bin_output.owner, _BinaryOperand) and uni_bin_output.owner not in added:
                 # handle input 1
                 outputs.append(uni_bin_output.owner.input_1)
                 inputs.append(uni_bin_output.owner.input.input_1)
@@ -297,10 +298,12 @@ class ProcessWorkflow(ProcessNode):
                 # to the outputs list will make sure they are handled later
                 # addOutputsInputsBinaryOperand(uni_bin_output.owner.input_1)
                 # addOutputsInputsBinaryOperand(uni_bin_output.owner.input_2)
-            elif isinstance(uni_bin_output.owner, _UnitaryOperand):
+                added.append(uni_bin_output.owner)
+            elif isinstance(uni_bin_output.owner, _UnitaryOperand) and uni_bin_output.owner not in added:
                 # handle input 1
                 outputs.append(uni_bin_output.owner.input_1)
                 inputs.append(uni_bin_output.owner.input.input_1)
+                added.append(uni_bin_output.owner)
         for output in outputs:
             addOutputsInputsUnitaryBinaryOperand(output)
 
