@@ -269,6 +269,8 @@ class ProcessNode(object):
             else:
                 # self._copyInput(input_dict)
                 self._input_cache = NodeRunInput(self, list(input_dict.keys()), list(input_dict.values()))
+                # reset output_cache before running
+                self._output_cache = None
             
         # compute output
         # catch warnings 
@@ -408,9 +410,12 @@ class ProcessNode(object):
         return type(self).__name__ + descr
     
     def __repr__(self):
+        sorted_man_inp = tuple(sorted(self.mandatory_inputs))
+        sorted_non_mand_idx = sorted(range(len(self.non_mandatory_inputs)), key=lambda k: self.non_mandatory_inputs[k])
+        sorted_outputs = tuple(self.outputs)
         return f"{self.__str__()}\n" \
-                    "Inputs: " + str(self.mandatory_inputs + tuple(f"{inp}={def_}" for inp,def_ in zip(self.non_mandatory_inputs, self.default_inputs))) + "\n" \
-                        "Outputs: " + str(self.outputs)
+                    "Inputs: " + str(sorted_man_inp + tuple(f"{self.non_mandatory_inputs[k]}={self.default_inputs[k]}" for k in sorted_non_mand_idx)) + "\n" \
+                        "Outputs: " + str(sorted_outputs)
                         # "Defaults: " + str(self.default_inputs) + "\n" 
     # def __copy__(self):
     #     cls = self.__class__
