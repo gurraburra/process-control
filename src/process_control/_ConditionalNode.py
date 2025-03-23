@@ -158,7 +158,8 @@ class ConditionalNode(ProcessNode):
                         self._non_mandatory_inputs.append(non_mand_input)
                         self._default_inputs.append(default_input)
                     # if in non mandatory input -> check if default value is same, otherwise notify user
-                    elif non_mand_input in self._non_mandatory_inputs:
+                    # unless the non mandatory input is the conditional input and a default value has been given
+                    elif non_mand_input in self._non_mandatory_inputs and (non_mand_input != self._conditional_input or self._default_condition is self.__no_default_condition):
                         idx_cond = self._non_mandatory_inputs.index(non_mand_input)
                         if self._default_inputs[idx_cond] != f"--depends on condition '{self._conditional_input}'--" and self._default_inputs[idx_cond] != default_input:
                             self._default_inputs[idx_cond] = f"--depends on condition '{self._conditional_input}'--"
@@ -238,15 +239,24 @@ class ConditionalNode(ProcessNode):
     def class_default_inputs(self) -> tuple:
         return self._default_inputs
     
-    # # override check run inputs
-    # def _checkRunInputs(self, input_dict : dict) -> None:
-    #     # check if condition_input is given if no default_condition exists
-    #     if self._default_condition is self.__no_default_condition and self._conditional_input not in input_dict:
-    #         raise TypeError(f"Node {self} is missing input '{self._conditional_input}'.")
-    #     # check for redudant inputs
-    #     for input_str in input_dict.keys():
-    #         if input_str not in self.inputs:
-    #             raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
+    # override check run inputs so that default inputs are not added 
+    # but this left for the node selected to run
+    # however the input 'conditional_input' still need to be handled here
+    # as well as redudant inputs
+    def _checkRunInputs(self, input_dict : dict) -> None:
+        # check if condition_input is given if no default_condition exists
+        if self._conditional_input not in input_dict: 
+            best_match = self._bestMatch(self._conditional_input, input_dict.keys())
+            if best_match is not None:
+                input_dict[self._conditional_input] = input_dict[best_match]
+                del input_dict[best_match]
+            else:
+                if self._default_condition is not self.__no_default_condition:
+                    input_dict[self._conditional_input] = self._default_condition
+        # check for redudant inputs
+        for input_str in input_dict.keys():
+            if input_str not in self.inputs:
+                raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
             
     # # override add non mandaotry inputs
     # def _addNonMandatoryInputs(self, input_dict : dict) -> None:
