@@ -34,7 +34,7 @@ class ConditionalNode(ProcessNode):
                 assert isinstance(node, ProcessNode)
         self._condition_node_map = condition_node_map
         # check default input
-        if default_condition is not self.__no_default_condition:
+        if default_condition is not self.__no_default_condition and self.no_match_condition not in condition_node_map:
             assert default_condition in condition_node_map, f"Missing default condition: '{default_condition}'."
         self._default_condition = default_condition
 
@@ -238,18 +238,18 @@ class ConditionalNode(ProcessNode):
     def class_default_inputs(self) -> tuple:
         return self._default_inputs
     
-    # override check run inputs
-    def _checkRunInputs(self, input_dict : dict) -> None:
-        # check if condition_input is given if no default_condition exists
-        if self._default_condition is self.__no_default_condition and self._conditional_input not in input_dict:
-            raise TypeError(f"Node {self} is missing input '{self._conditional_input}'.")
-        # check for redudant inputs
-        for input_str in input_dict.keys():
-            if input_str not in self.inputs:
-                raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
+    # # override check run inputs
+    # def _checkRunInputs(self, input_dict : dict) -> None:
+    #     # check if condition_input is given if no default_condition exists
+    #     if self._default_condition is self.__no_default_condition and self._conditional_input not in input_dict:
+    #         raise TypeError(f"Node {self} is missing input '{self._conditional_input}'.")
+    #     # check for redudant inputs
+    #     for input_str in input_dict.keys():
+    #         if input_str not in self.inputs:
+    #             raise TypeError(f"Node {self} got an unexpected input '{input_str}'.")
             
-    # override add non mandaotry inputs
-    def _addNonMandatoryInputs(self, input_dict : dict) -> None:
-        # add default_condition if condtional_input not given
-        if self._conditional_input not in input_dict:
-            input_dict[self._conditional_input] = self._default_condition
+    # # override add non mandaotry inputs
+    # def _addNonMandatoryInputs(self, input_dict : dict) -> None:
+    #     # add default_condition if condtional_input not given
+    #     if self._conditional_input not in input_dict:
+    #         input_dict[self._conditional_input] = self._default_condition
