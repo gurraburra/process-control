@@ -158,12 +158,13 @@ class ConditionalNode(ProcessNode):
                         self._non_mandatory_inputs.append(non_mand_input)
                         self._default_inputs.append(default_input)
                     # if in non mandatory input -> check if default value is same, otherwise notify user
-                    # unless the non mandatory input is the conditional input and a default value has been given
-                    elif non_mand_input in self._non_mandatory_inputs and (non_mand_input != self._conditional_input or self._default_condition is self.__no_default_condition):
-                        idx_cond = self._non_mandatory_inputs.index(non_mand_input)
-                        if self._default_inputs[idx_cond] != f"--depends on condition '{self._conditional_input}'--" and self._default_inputs[idx_cond] != default_input:
-                            self._default_inputs[idx_cond] = f"--depends on condition '{self._conditional_input}'--"
-                            # print(f"Different default values detected for input: {non_mand_input}.")
+                    elif non_mand_input in self._non_mandatory_inputs:
+                        # unless the non mandatory input is the conditional input and a default value has been given
+                        if non_mand_input != self._conditional_input or self._default_condition is self.__no_default_condition:
+                            idx_cond = self._non_mandatory_inputs.index(non_mand_input)
+                            if self._default_inputs[idx_cond] != f"--depends on condition '{self._conditional_input}'--" and self._default_inputs[idx_cond] != default_input:
+                                self._default_inputs[idx_cond] = f"--depends on condition '{self._conditional_input}'--"
+                                # print(f"Different default values detected for input: {non_mand_input}.")
                     # if not in either mandatory or non mandatory inputs -> add it to non mandatory inputs
                     else:
                         self._non_mandatory_inputs.append(non_mand_input)
