@@ -58,8 +58,8 @@ class IteratingNode(ProcessNode):
         # create tuples
         self._iterating_inputs = tuple(iterating_inputs)
         self._mandatory_inputs = tuple(mandatory_inputs)
-        self._non_mandatory_inputs = tuple(non_mandatory_inputs) + (self._listName("nr_parallel_processes"), self._listName("show_pbar"))
-        self._default_inputs = tuple(default_inputs) + (0, True)
+        self._non_mandatory_inputs = tuple(non_mandatory_inputs) + (self._listName("nr_parallel_processes"), self._listName("show_pbar"), self._listName("concat_array_outputs"))
+        self._default_inputs = tuple(default_inputs) + (0, True, False)
 
         # exclude outputs
         if isinstance(exclude_outputs, str):
@@ -81,7 +81,7 @@ class IteratingNode(ProcessNode):
 
     def _run(self, verbose : bool, **input_dict):
         # get iterNode specific input
-        nr_parallel_processes, show_pbar = input_dict.pop(self._listName("nr_parallel_processes")), input_dict.pop(self._listName("show_pbar"))
+        nr_parallel_processes, show_pbar, concat_array_outputs = input_dict.pop(self._listName("nr_parallel_processes")), input_dict.pop(self._listName("show_pbar")), input_dict.pop(self._listName("concat_array_outputs"))
         # check input_dict
         nr_iter, moved_iterating_inputs = self._checkInput(input_dict)
         # handle zero iterations
@@ -105,7 +105,7 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
-            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, nr_parallel_processes, arg_values_list)]))
+            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, concat_array_outputs, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, nr_parallel_processes, arg_values_list)]))
             # receive value threads (separete recv threads are needed for pipe not to hang when writing large data)
             recv_threads = [None] * len(processes)
             recv_results = [None] * len(processes)
@@ -174,7 +174,7 @@ class IteratingNode(ProcessNode):
         return in_pipe, p
 
     @staticmethod
-    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, include_outputs : tuple[str], pipe : Pipe) -> list:
+    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, concat_array_outputs : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, include_outputs : tuple[str], pipe : Pipe) -> list:
         outputs = []
         nr_iter, iterable_list = arg_values
         update_every = int(nr_iter / 100)
@@ -193,14 +193,19 @@ class IteratingNode(ProcessNode):
         # pivot outputs
         pivot_outputs = []
         non_numeric_outputs = []
-        for i, output in enumerate(zip( *outputs )):
-            if is_numeric(output[0]):
+        for i, output_list in enumerate(zip( *outputs )):
+            if concat_array_outputs and isinstance(output_list[0], np.ndarray):
                 try:
-                    pivot_outputs.append(np.array(output))
+                    pivot_outputs.append(np.concatenate(output_list))
+                except ValueError as e:
+                    raise RuntimeError(f"Unable able to concatenate array output: {include_outputs[i]} from node {iterating_node}.")
+            elif is_numeric(output_list[0]):
+                try:
+                    pivot_outputs.append(np.array(output_list))
                 except ValueError as e:
                     raise RuntimeError(f"Unable able to concatenate numeric output: {include_outputs[i]} from node {iterating_node}.")
             else:
-                pivot_outputs.append(output)
+                pivot_outputs.append(output_list)
                 non_numeric_outputs.append(include_outputs[i])
         # send result
         pipe.send(tuple(pivot_outputs))
