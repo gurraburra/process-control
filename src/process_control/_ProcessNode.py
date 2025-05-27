@@ -412,7 +412,7 @@ class ProcessNode(object):
     def __repr__(self):
         sorted_man_inp = tuple(sorted(self.mandatory_inputs))
         sorted_non_mand_idx = sorted(range(len(self.non_mandatory_inputs)), key=lambda k: self.non_mandatory_inputs[k])
-        sorted_outputs = tuple(self.outputs)
+        sorted_outputs = tuple(sorted(self.outputs))
         return f"{self.__str__()}\n" \
                     "Inputs: " + str(sorted_man_inp + tuple(f"{self.non_mandatory_inputs[k]}={self.default_inputs[k]}" for k in sorted_non_mand_idx)) + "\n" \
                         "Outputs: " + str(sorted_outputs)
