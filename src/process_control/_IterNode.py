@@ -55,11 +55,24 @@ class IteratingNode(ProcessNode):
                 non_mandatory_inputs[non_mandatory_inputs.index(input)] = self._listName(input)
             else:
                 raise ValueError(f"Input '{input}' does not exist in node: {iterating_node}.")
+        # check protected names not in inputs and then add them
+        protected_inputs = ("nr_parallel_processes", "show_pbar", "concat_array_outputs")
+        protected_default = (0, True, False)
+        for prot_inp, default_value in zip(protected_inputs, protected_default):
+            list_prot_inp = self._listName(prot_inp)
+            if list_prot_inp in mandatory_inputs or list_prot_inp in non_mandatory_inputs:
+                raise ValueError(f"Input name: '{list_prot_inp}' is protected.")
+            # this elif is just to not create confusion about inputs
+            elif prot_inp in mandatory_inputs or prot_inp in non_mandatory_inputs:
+                raise ValueError(f"Input name: '{prot_inp}' is protected.")
+            # add to non mandatory inputs
+            non_mandatory_inputs.append(list_prot_inp)
+            default_inputs.append(default_value)
         # create tuples
         self._iterating_inputs = tuple(iterating_inputs)
         self._mandatory_inputs = tuple(mandatory_inputs)
-        self._non_mandatory_inputs = tuple(non_mandatory_inputs) + (self._listName("nr_parallel_processes"), self._listName("show_pbar"), self._listName("concat_array_outputs"))
-        self._default_inputs = tuple(default_inputs) + (0, True, False)
+        self._non_mandatory_inputs = tuple(non_mandatory_inputs)
+        self._default_inputs = tuple(default_inputs)
 
         # exclude outputs
         if isinstance(exclude_outputs, str):
