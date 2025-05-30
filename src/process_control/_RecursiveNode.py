@@ -171,12 +171,17 @@ class RecursiveNode(ProcessNode):
                 else:
                     self._non_mandatory_inputs.append(non_mand_input)
                     self._default_inputs.append(default_input)
-        
+        # check if protected show_pbar is not in inputs, then add it
+        if "show_pbar" in self._mandatory_inputs or "show_pbar" in self._non_mandatory_inputs:
+            raise ValueError("Input name: 'show_pbar' is protected.")
+        else:
+            self._non_mandatory_inputs.append("show_pbar")
+            self._default_inputs.append(True)
         # check if __nr_recursive_runs__ in inputs, then remove since its provided by self
         if 'Init___nr_recursive_runs__' in self._mandatory_inputs:
             idx_cond = self._mandatory_inputs.index('Init___nr_recursive_runs__')
             del self._mandatory_inputs[idx_cond]
-        elif 'Init___nr_recursive_runs__' in self._mandatory_inputs:
+        elif 'Init___nr_recursive_runs__' in self._non_mandatory_inputs:
             idx_cond = self._non_mandatory_inputs.index('Init___nr_recursive_runs__')
             del self._non_mandatory_inputs[idx_cond]
             del self._default_inputs[idx_cond]
@@ -196,6 +201,8 @@ class RecursiveNode(ProcessNode):
         self._createInputOutputAttributes()
 
     def _run(self, verbose : bool, **input_dict):
+        # remove show_pbar from input
+        show_pbar = input_dict.pop("show_pbar")
         # Architectures
         # input_dict -> recursive_input_map -> node_input -> node.run(...) -> node_output -> input_dict -> ...
         # add nr recursive runs to input since its a recursive output coming from self
@@ -217,11 +224,11 @@ class RecursiveNode(ProcessNode):
             else:
                 node_input[rec_input.owner][rec_input.name] = input_dict[self._retrieveInputName(rec_input)]
         # check verbose
-        if verbose:
-            if isinstance(self._break_recursion_node, self._nrRecursion):
-                total = input_dict['nr_recursions']
-            else:
-                total = None
+        if isinstance(self._break_recursion_node, self._nrRecursion):
+            total = input_dict['nr_recursions']
+        else:
+            total = None
+        if show_pbar and verbose and total != 0:
             pbar = tqdm(desc = f"{self}", miniters = 1, total = total)
         else:
             pbar = None
