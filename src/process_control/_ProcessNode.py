@@ -414,8 +414,8 @@ class ProcessNode(object):
         sorted_non_mand_idx = sorted(range(len(self.non_mandatory_inputs)), key=lambda k: self.non_mandatory_inputs[k])
         sorted_outputs = tuple(sorted(self.outputs))
         return f"{self.__str__()}\n" \
-                    "Inputs: " + str(sorted_man_inp + tuple(f"{self.non_mandatory_inputs[k]}={self.default_inputs[k]}" for k in sorted_non_mand_idx)) + "\n" \
-                        "Outputs: " + str(sorted_outputs)
+                    "Inputs: " + ", ".join(sorted_man_inp + tuple(f"{self.non_mandatory_inputs[k]}={f"'{self.default_inputs[k]}'" if isinstance(self.default_inputs[k], str) else str(self.default_inputs[k])}" for k in sorted_non_mand_idx)) + "\n" \
+                        "Outputs: " + ", ".join(sorted_outputs)
                         # "Defaults: " + str(self.default_inputs) + "\n" 
     # def __copy__(self):
     #     cls = self.__class__

@@ -272,13 +272,13 @@ class ConditionalNode(ProcessNode):
         # if conditional input is mandatory
         if self._conditional_input in self.mandatory_inputs:
             idx = self.mandatory_inputs.index(self._conditional_input)
-            cond_input = f"{self._conditional_input} : {list(self._condition_node_map.keys())}"
+            cond_input = f"{self._conditional_input} - {list(self._condition_node_map.keys())}"
             mand_input = [m for i,m in enumerate(self.mandatory_inputs) if i != idx]
             non_mand_input = self.non_mandatory_inputs
             def_inp = self.default_inputs
         else:
             idx = self.non_mandatory_inputs.index(self._conditional_input)
-            cond_input = f"{self._conditional_input}={self._default_condition} : {list(self._condition_node_map.keys())}"
+            cond_input = f"{self._conditional_input}={f"'{self._default_condition}'" if isinstance(self._default_condition, str) else str(self._default_condition)} - {list(self._condition_node_map.keys())}"
             mand_input = self.mandatory_inputs
             non_mand_input =  [m for i,m in enumerate(self.non_mandatory_inputs) if i != idx]
             def_inp =  [m for i,m in enumerate(self.default_inputs) if i != idx]
@@ -288,5 +288,5 @@ class ConditionalNode(ProcessNode):
         sorted_outputs = tuple(sorted(self.outputs))
         return f"{self.__str__()}\n" \
                     "Condition: " + cond_input + "\n" \
-                    "Inputs: " + str(sorted_man_inp + tuple(f"{non_mand_input[k]}={def_inp[k]}" for k in sorted_non_mand_idx)) + "\n" \
-                    "Outputs: " + str(sorted_outputs)
+                    "Inputs: " + ", ".join(sorted_man_inp + tuple(f"{non_mand_input[k]}={f"'{def_inp[k]}'" if isinstance(def_inp[k], str) else str(def_inp[k])}" for k in sorted_non_mand_idx)) + "\n" \
+                    "Outputs: " + ", ".join(sorted_outputs)
