@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from ._ProcessNode import ProcessNode
 from threading import Thread
 import sys
+from functools import partial
 
 def is_numeric(obj) -> bool:
     attrs = ['__add__', '__sub__', '__mul__', '__truediv__', '__pow__']
@@ -118,7 +119,7 @@ class IteratingNode(ProcessNode):
             # queue to update tqdm process bar
             pbar_queue = Queue()
             # process to execute
-            pipes, processes = tuple(zip(*[self._createProcessAndPipe(self._iterNode, self.iterating_node, pbar_queue, verbose, concat_array_outputs, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, nr_parallel_processes, arg_values_list)]))
+            pipes, processes = tuple(zip(*[self._createProcessAndPipe(IteratingNode._iterNode, self.iterating_node, pbar_queue, verbose, concat_array_outputs, common_input_dict, iterating_inputs, arg_values, self.include_outputs) for arg_values in self._iterArgs(nr_iter, nr_parallel_processes, arg_values_list)]))
             # receive value threads (separete recv threads are needed for pipe not to hang when writing large data)
             recv_threads = [None] * len(processes)
             recv_results = [None] * len(processes)
@@ -150,15 +151,14 @@ class IteratingNode(ProcessNode):
             # mapped = chain.from_iterable(process_results)
             return tuple(np.concatenate(output_list) if isinstance(output_list[0], np.ndarray) else tuple(chain.from_iterable(output_list)) for output_list in zip( *recv_results ))
         else:
-            def f_single_iteration(args):
-                output = self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(iterating_inputs, args)})
-                return output[self.include_outputs]
-            # f_single_iteration = lambda args : self.iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(self.iterating_inputs, args)}).values()
+            map_func = partial(IteratingNode._singleIteration, self.iterating_node, verbose, common_input_dict, iterating_inputs, include_outputs=self.include_outputs)
             if show_pbar and verbose:
-                mapped = map(f_single_iteration, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
+                outputs = map(map_func, tqdm(zip(*arg_values_list), total = nr_iter, desc = f"{self} (sequential)"))
             else:
-                mapped = map(f_single_iteration, zip(*arg_values_list))
-            return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
+                outputs = map(map_func, zip(*arg_values_list))
+            # pivot outputs
+            pivot_outputs, _ = IteratingNode._pivotOutput(outputs, concat_array_outputs, self.include_outputs, self.iterating_node)
+            return tuple(pivot_outputs)
 
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
@@ -185,25 +185,13 @@ class IteratingNode(ProcessNode):
         p.start()
         out_pipe.close()
         return in_pipe, p
-
+    
     @staticmethod
-    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, concat_array_outputs : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, include_outputs : tuple[str], pipe : Pipe) -> list:
-        outputs = []
-        nr_iter, iterable_list = arg_values
-        update_every = int(nr_iter / 100)
-        nr = 0
-        for args in zip(*iterable_list):
-            output = iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)})
-            outputs.append(output[include_outputs])
-            nr += 1
-            if nr > update_every:
-                pbar_queue.put(nr)
-                nr = 0
-        pbar_queue.put(nr)
-        # join queue
-        pbar_queue.close()
-        pbar_queue.join_thread()
-        # pivot outputs
+    def _singleIteration(iterating_node, verbose, common_input_dict, arg_names, args, include_outputs):
+        return iterating_node.run(ignore_cache=True, verbose=verbose, **common_input_dict, **{name : arg for name, arg in zip(arg_names, args)})[include_outputs]
+    
+    @staticmethod
+    def _pivotOutput(outputs, concat_array_outputs, include_outputs, iterating_node):
         pivot_outputs = []
         non_numeric_outputs = []
         for i, output_list in enumerate(zip( *outputs )):
@@ -220,6 +208,26 @@ class IteratingNode(ProcessNode):
             else:
                 pivot_outputs.append(output_list)
                 non_numeric_outputs.append(include_outputs[i])
+        return pivot_outputs, non_numeric_outputs
+    
+    @staticmethod
+    def _iterNode(iterating_node : ProcessNode, pbar_queue : Queue, verbose : bool, concat_array_outputs : bool, common_input_dict : dict, arg_names : list[str], arg_values : Iterable, include_outputs : tuple[str], pipe : Pipe) -> list:
+        outputs = []
+        nr_iter, iterable_list = arg_values
+        update_every = int(nr_iter / 100)
+        nr = 0
+        for args in zip(*iterable_list):
+            outputs.append(IteratingNode._singleIteration(iterating_node, verbose, common_input_dict, arg_names, args, include_outputs))
+            nr += 1
+            if nr > update_every:
+                pbar_queue.put(nr)
+                nr = 0
+        pbar_queue.put(nr)
+        # join queue
+        pbar_queue.close()
+        pbar_queue.join_thread()
+        # pivot outputs
+        pivot_outputs, non_numeric_outputs = IteratingNode._pivotOutput(outputs, concat_array_outputs, include_outputs, iterating_node)
         # send result
         pipe.send(tuple(pivot_outputs))
         pipe.close()
