@@ -162,7 +162,7 @@ class ConditionalNode(ProcessNode):
                     # if in non mandatory input -> check if default value is same, otherwise notify user
                     elif non_mand_input in self._non_mandatory_inputs:
                         # unless the non mandatory input is the conditional input and a default value has been given
-                        if non_mand_input != self._conditional_input or self._default_condition is self.__no_default_condition:
+                        if non_mand_input != self._conditional_input:
                             idx_cond = self._non_mandatory_inputs.index(non_mand_input)
                             if self._default_inputs[idx_cond] != f"--depends on condition '{self._conditional_input}'--" and self._default_inputs[idx_cond] != default_input:
                                 self._default_inputs[idx_cond] = f"--depends on condition '{self._conditional_input}'--"
@@ -247,15 +247,20 @@ class ConditionalNode(ProcessNode):
     # however the input 'conditional_input' still need to be handled here
     # as well as redudant inputs
     def _checkRunInputs(self, input_dict : dict) -> None:
-        # check if condition_input is given if no default_condition exists
-        if self._conditional_input not in input_dict: 
-            best_match = self._bestMatch(self._conditional_input, input_dict.keys())
-            if best_match is not None:
-                input_dict[self._conditional_input] = input_dict[best_match]
-                del input_dict[best_match]
-            else:
-                if self._default_condition is not self.__no_default_condition:
-                    input_dict[self._conditional_input] = self._default_condition
+        # check inputs 
+        for input_str in self.inputs:
+            if input_str not in input_dict:
+                best_match = self._bestMatch(input_str, input_dict.keys())
+                if best_match is not None:
+                    input_dict[input_str] = input_dict[best_match]
+                    del input_dict[best_match]
+                else:
+                    if input_str in self.non_mandatory_inputs:
+                        # only update if input is conditonal inputm otherwise leave to conditional node
+                        if input_str == self._conditional_input:
+                            input_dict[input_str] = self.default_inputs[self.non_mandatory_inputs.index(input_str)]
+                    else:
+                        raise TypeError(f"Node {self} is missing input: '{input_str}'.")
         # check for redudant inputs
         for input_str in input_dict.keys():
             if input_str not in self.inputs:
