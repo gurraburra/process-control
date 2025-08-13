@@ -2,7 +2,9 @@ from ._ProcessNode import ProcessNode, NodeInput, NodeOutput
 
 class ConditionalNode(ProcessNode):
     """
-    A conditioanl node will only run internal node if condition is True.
+    A conditional node will run the node given by the 'conditional_input', mapped according to the 'condition_node_map'. 
+    
+    Can set a default condition using 'default_condition'. Additionaly, if a node should run when no matches is given, the 'ConditionalNode.no_match_condition' should be placed in the 'condition_node_map' for the corresponding node.
 
     Argument:
     ---------
@@ -187,7 +189,7 @@ class ConditionalNode(ProcessNode):
         # check for if condition is valid
         if condition not in self._condition_node_map:
             if self.no_match_condition not in self._condition_node_map:
-                raise RuntimeError(f"Node {self} got unexpected condition: '{condition}'.")
+                raise RuntimeError(f"Node {self} got unexpected condition: '{condition}', needs to be in: {list(self._condition_node_map.keys())}.")
             else:
                 condition = self.no_match_condition
         # it it is get node to execute
@@ -264,3 +266,27 @@ class ConditionalNode(ProcessNode):
     #     # add default_condition if condtional_input not given
     #     if self._conditional_input not in input_dict:
     #         input_dict[self._conditional_input] = self._default_condition
+    
+    # override __repr__ to add addtional line for condition input
+    def __repr__(self):
+        # if conditional input is mandatory
+        if self._conditional_input in self.mandatory_inputs:
+            idx = self.mandatory_inputs.index(self._conditional_input)
+            cond_input = f"{self._conditional_input} : {list(self._condition_node_map.keys())}"
+            mand_input = [m for i,m in enumerate(self.mandatory_inputs) if i != idx]
+            non_mand_input = self.non_mandatory_inputs
+            def_inp = self.default_inputs
+        else:
+            idx = self.non_mandatory_inputs.index(self._conditional_input)
+            cond_input = f"{self._conditional_input}={self._default_condition} : {list(self._condition_node_map.keys())}"
+            mand_input = self.mandatory_inputs
+            non_mand_input =  [m for i,m in enumerate(self.non_mandatory_inputs) if i != idx]
+            def_inp =  [m for i,m in enumerate(self.default_inputs) if i != idx]
+        # sort
+        sorted_man_inp = tuple(sorted(mand_input))
+        sorted_non_mand_idx = sorted(range(len(non_mand_input)), key=lambda k: non_mand_input[k])
+        sorted_outputs = tuple(sorted(self.outputs))
+        return f"{self.__str__()}\n" \
+                    "Condition: " + cond_input + "\n" \
+                    "Inputs: " + str(sorted_man_inp + tuple(f"{non_mand_input[k]}={def_inp[k]}" for k in sorted_non_mand_idx)) + "\n" \
+                    "Outputs: " + str(sorted_outputs)
