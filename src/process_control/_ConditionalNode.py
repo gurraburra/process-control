@@ -152,13 +152,14 @@ class ConditionalNode(ProcessNode):
                     # check internal mapping
                     if self._internal_map_in is not None:
                         non_mand_input = self._internal_map_in[node][non_mand_input]
-                    # if non mandatory input exist as mandatory input -> leave it there
+                    # if non mandatory input exist as mandatory input -> # change to non mandatory
                     if non_mand_input in self._mandatory_inputs:
-                        # change to non mandatory
-                        idx_cond = self._mandatory_inputs.index(non_mand_input)
-                        del self._mandatory_inputs[idx_cond]
-                        self._non_mandatory_inputs.append(non_mand_input)
-                        self._default_inputs.append(default_input)
+                        # unless the mandatory input is the conditional input
+                        if non_mand_input != self._conditional_input:
+                            idx_cond = self._mandatory_inputs.index(non_mand_input)
+                            del self._mandatory_inputs[idx_cond]
+                            self._non_mandatory_inputs.append(non_mand_input)
+                            self._default_inputs.append(default_input)
                     # if in non mandatory input -> check if default value is same, otherwise notify user
                     elif non_mand_input in self._non_mandatory_inputs:
                         # unless the non mandatory input is the conditional input and a default value has been given
@@ -256,7 +257,7 @@ class ConditionalNode(ProcessNode):
                     del input_dict[best_match]
                 else:
                     if input_str in self.non_mandatory_inputs:
-                        # only update if input is conditonal inputm otherwise leave to conditional node
+                        # only update if input is conditonal input otherwise leave to conditional node
                         if input_str == self._conditional_input:
                             input_dict[input_str] = self.default_inputs[self.non_mandatory_inputs.index(input_str)]
                     else:
@@ -274,16 +275,20 @@ class ConditionalNode(ProcessNode):
     
     # override __repr__ to add addtional line for condition input
     def __repr__(self):
+        condition_str = list(filter(lambda x : x is not self.no_match_condition, self._condition_node_map.keys())).__str__()
+        if self.no_match_condition in self._condition_node_map:
+            # condition_str += " <no-match-condition-available>"
+            condition_str += f" (no-match -> {self._condition_node_map[self.no_match_condition]})"
         # if conditional input is mandatory
         if self._conditional_input in self.mandatory_inputs:
             idx = self.mandatory_inputs.index(self._conditional_input)
-            cond_input = f"{self._conditional_input} - {list(self._condition_node_map.keys())}"
+            cond_input = f"{self._conditional_input} - {condition_str}"
             mand_input = [m for i,m in enumerate(self.mandatory_inputs) if i != idx]
             non_mand_input = self.non_mandatory_inputs
             def_inp = self.default_inputs
         else:
             idx = self.non_mandatory_inputs.index(self._conditional_input)
-            cond_input = f"{self._conditional_input}={f"'{self._default_condition}'" if isinstance(self._default_condition, str) else str(self._default_condition)} - {list(self._condition_node_map.keys())}"
+            cond_input = f"{self._conditional_input}={f"'{self._default_condition}'" if isinstance(self._default_condition, str) else str(self._default_condition)} - {condition_str}"
             mand_input = self.mandatory_inputs
             non_mand_input =  [m for i,m in enumerate(self.non_mandatory_inputs) if i != idx]
             def_inp =  [m for i,m in enumerate(self.default_inputs) if i != idx]
