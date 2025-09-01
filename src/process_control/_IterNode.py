@@ -57,9 +57,9 @@ class IteratingNode(ProcessNode):
             else:
                 raise ValueError(f"Input '{input}' does not exist in node: {iterating_node}.")
         # check protected names not in inputs and then add them
-        protected_inputs = ("nr_parallel_processes", "show_pbar", "concat_array_outputs")
+        self._protected_inputs = ("nr_parallel_processes", "show_pbar", "concat_array_outputs")
         protected_default = (0, True, False)
-        for prot_inp, default_value in zip(protected_inputs, protected_default):
+        for prot_inp, default_value in zip(self._protected_inputs, protected_default):
             list_prot_inp = self._listName(prot_inp)
             if list_prot_inp in mandatory_inputs or list_prot_inp in non_mandatory_inputs:
                 raise ValueError(f"Input name: '{list_prot_inp}' is protected.")
@@ -324,3 +324,49 @@ class IteratingNode(ProcessNode):
     @property
     def class_default_inputs(self) -> tuple:
         return self._default_inputs
+    
+    # override __repr__ to add addtional line for condition input
+    def __repr__(self):
+        # create editable list
+        mand_input = list(self.mandatory_inputs)
+        iter_mand_input = []
+        prot_mand_input = []
+        non_mand_input = list(self.non_mandatory_inputs)
+        iter_non_mand_input = []
+        prot_non_mand_input = []
+        default_input = list(self.default_inputs)
+        iter_def_input = []
+        prot_def_input = []
+
+        # move iterating inputs
+        for inp in self.iterating_inputs:
+            inp = self._listName(inp)
+            if inp in mand_input:
+                iter_mand_input.append(mand_input.pop(mand_input.index(inp)))
+            elif inp in non_mand_input:
+                idx = non_mand_input.index(inp)
+                iter_non_mand_input.append(non_mand_input.pop(idx))
+                iter_def_input.append(default_input.pop(idx))
+        # move protected inputs
+        for inp in self._protected_inputs:
+            inp = self._listName(inp)
+            if inp in mand_input:
+                prot_mand_input.append(mand_input.pop(mand_input.index(inp)))
+            elif inp in non_mand_input:
+                idx = non_mand_input.index(inp)
+                prot_non_mand_input.append(non_mand_input.pop(idx))
+                prot_def_input.append(default_input.pop(idx))
+                
+        # sort
+        sorted_prot_man_inp = tuple(sorted(prot_mand_input))
+        sorted_prot_non_mand_idx = sorted(range(len(prot_non_mand_input)), key=lambda k: prot_non_mand_input[k])
+        sorted_iter_man_inp = tuple(sorted(iter_mand_input))
+        sorted_iter_non_mand_idx = sorted(range(len(iter_non_mand_input)), key=lambda k: iter_non_mand_input[k])
+        sorted_man_inp = tuple(sorted(mand_input))
+        sorted_non_mand_idx = sorted(range(len(non_mand_input)), key=lambda k: non_mand_input[k])
+        sorted_outputs = tuple(sorted(self.outputs))
+        return f"{self.__str__()}\n" \
+                    "Execution inputs: " + ", ".join(sorted_prot_man_inp + tuple(f"{prot_non_mand_input[k]}={f"'{prot_def_input[k]}'" if isinstance(prot_def_input[k], str) else str(prot_def_input[k])}" for k in sorted_prot_non_mand_idx)) + "\n" \
+                    "Iterating inputs: " + ", ".join(sorted_iter_man_inp + tuple(f"{iter_non_mand_input[k]}={f"'{iter_def_input[k]}'" if isinstance(iter_def_input[k], str) else str(iter_def_input[k])}" for k in sorted_iter_non_mand_idx)) + "\n" \
+                    "Non-iterating inputs: " + ", ".join(sorted_man_inp + tuple(f"{non_mand_input[k]}={f"'{default_input[k]}'" if isinstance(default_input[k], str) else str(default_input[k])}" for k in sorted_non_mand_idx)) + "\n" \
+                    "Outputs: " + ", ".join(sorted_outputs)
