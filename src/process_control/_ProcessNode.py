@@ -341,7 +341,7 @@ class ProcessNode(object):
         for input_str in self.inputs:
             if input_str not in input_dict:
                 best_match = self._bestMatch(input_str, input_dict.keys())
-                if best_match is not None:
+                if best_match is not None and best_match not in self.inputs: # make sure best match is not another input
                     input_dict[input_str] = input_dict[best_match]
                     del input_dict[best_match]
                 else:
