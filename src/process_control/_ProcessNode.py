@@ -294,7 +294,9 @@ class ProcessNode(object):
             if len(w):
                 print(f"Warnings from node {self}:")
                 for warn in w:
-                    print(f"\t{warn.message}")
+                    print(f"\t{warn.category.__name__}: {warn.message}")
+                    print(f"\tFile: {warn.filename}")
+                    print(f"\tLine: {warn.lineno}")
 
         # check if tuple otherwise create one
         if not isinstance(output_tuple, (tuple,list)):
