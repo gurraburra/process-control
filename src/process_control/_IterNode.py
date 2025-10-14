@@ -127,7 +127,12 @@ class IteratingNode(ProcessNode):
                 recv_threads[i] = Thread(target=self._pipeRecv, args=(pipes[i], recv_results, i))
                 recv_threads[i].start()
             # process to update tqdm process bar
-            pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, nr_iter, f"{self} (parallel - {nr_parallel_processes})", show_pbar, verbose))
+            if show_pbar and verbose:
+                # need to create pbar in main thread
+                pbar = tqdm(total = nr_iter, desc = f"{self} (parallel - {nr_parallel_processes})")
+                pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, pbar))
+            else:
+                pbar_thread = None
             # start processes
             pbar_thread.start()
             # wait for recv result
@@ -139,7 +144,9 @@ class IteratingNode(ProcessNode):
             # terminate pbar_thread by sending None to queue
             pbar_queue.put(None)
             # wait for pbar thread
-            pbar_thread.join()
+            if pbar_thread is not None:
+                pbar_thread.join()
+                pbar.close()
             # close queue and wait for backround thread to join
             pbar_queue.close()
             pbar_queue.join_thread()
@@ -172,11 +179,9 @@ class IteratingNode(ProcessNode):
             pipe.close()
 
     @staticmethod
-    def _pbarUpdate(pbar_queue, nr_iter, desc, show_pbar, verbose):
-        if show_pbar and verbose:
-            with tqdm(total = nr_iter, desc = desc) as pbar:
-                for nr in iter(pbar_queue.get, None):
-                    pbar.update(nr)
+    def _pbarUpdate(pbar_queue, pbar):
+        for nr in iter(pbar_queue.get, None):
+            pbar.update(nr)
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
