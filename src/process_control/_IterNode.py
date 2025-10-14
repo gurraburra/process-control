@@ -1,4 +1,5 @@
 from multiprocess import cpu_count, Process, Pipe, Queue
+from queue import Empty
 from tqdm.auto import tqdm
 import numpy as np
 from itertools import chain
@@ -124,29 +125,31 @@ class IteratingNode(ProcessNode):
             recv_threads = [None] * len(processes)
             recv_results = [None] * len(processes)
             for i in range(len(recv_threads)):
-                recv_threads[i] = Thread(target=self._pipeRecv, args=(pipes[i], recv_results, i))
+                recv_threads[i] = Thread(target=self._pipeRecv, args=(pipes[i], recv_results, i, pbar_queue))
                 recv_threads[i].start()
             # process to update tqdm process bar
             if show_pbar and verbose:
                 # need to create pbar in main thread
-                pbar = tqdm(total = nr_iter, desc = f"{self} (parallel - {nr_parallel_processes})")
-                pbar_thread = Thread(target=self._pbarUpdate, args=(pbar_queue, pbar))
-            else:
-                pbar_thread = None
-            # start processes
-            pbar_thread.start()
+                with tqdm(total = nr_iter, desc = f"{self} (parallel - {nr_parallel_processes})") as pbar:
+                    while True:
+                        try:
+                            msg = pbar_queue.get(timeout = 0.2)
+                            if msg is None: # error from recv_thread
+                                break
+                            else:
+                                pbar.update(msg)
+                        except Empty: # no message
+                            # check any recv_thread still alive
+                            if any(t.is_alive() for t in recv_threads):
+                                continue
+                            else:
+                                break
             # wait for recv result
             for recv_thread in recv_threads:
                 recv_thread.join()
             # wait for processes
             for process in processes:
                 process.join()
-            # terminate pbar_thread by sending None to queue
-            pbar_queue.put(None)
-            # wait for pbar thread
-            if pbar_thread is not None:
-                pbar_thread.join()
-                pbar.close()
             # close queue and wait for backround thread to join
             pbar_queue.close()
             pbar_queue.join_thread()
@@ -170,18 +173,20 @@ class IteratingNode(ProcessNode):
         # return tuple( zip( *mapped ) )
         # return  tuple(np.array(output) if is_numeric(output[0]) else output for output in zip( *mapped ))
     @staticmethod
-    def _pipeRecv(pipe, results, idx):
+    def _pipeRecv(pipe, results, idx, pbar_queue):
         try:
             results[idx] = pipe.recv()
         except EOFError:
+            # tell main thread by sending None to queue
+            pbar_queue.put(None)
             pass
         finally:
             pipe.close()
 
-    @staticmethod
-    def _pbarUpdate(pbar_queue, pbar):
-        for nr in iter(pbar_queue.get, None):
-            pbar.update(nr)
+    # @staticmethod
+    # def _pbarUpdate(pbar_queue, pbar):
+    #     for nr in iter(pbar_queue.get, None):
+    #         pbar.update(nr)
     
     @staticmethod
     def _createProcessAndPipe(target, *args):
