@@ -288,7 +288,7 @@ class ProcessNode(object):
                     run_kwds["verbose"] = verbose
                 output_tuple = self._run(**run_kwds, **input_dict)
             except Exception as e:
-                raise RuntimeError(f"Node {self} experienced an errror while excecuting.") from e
+                raise RuntimeError(f"Node {self} experienced an error while excecuting.") from e
             
             # Print warning
             if len(w):
