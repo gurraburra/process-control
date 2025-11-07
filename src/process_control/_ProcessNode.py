@@ -430,10 +430,11 @@ class ProcessNode(object):
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k not in ["_input_cache", "_output_cache"]:
-                setattr(result, k, copy.deepcopy(v, memo))
-            else:
-                setattr(result, k, None)
+            setattr(result, k, copy.deepcopy(v, memo))
+            # if k not in ["_input_cache", "_output_cache"]:
+            #     setattr(result, k, copy.deepcopy(v, memo))
+            # else:
+            #     setattr(result, k, None)
         return result
 
     def copy(self, description = None):
@@ -447,7 +448,7 @@ class ProcessNode(object):
 
     def __getstate__(self):
         d = self.__dict__
-        d.update({"_input_cache" : None, "_output_cache" : None})
+        # d.update({"_input_cache" : None, "_output_cache" : None})
         return d
     def __setstate__(self, d):
         self.__dict__ = d
