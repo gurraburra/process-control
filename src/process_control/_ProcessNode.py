@@ -403,7 +403,7 @@ class ProcessNode(object):
 
     def _createInputOutputAttributes(self, **default_inputs) -> None:
         self.input = NodeMapping(self, self.inputs, tuple(NodeInput(self, input) for input in self.inputs), True)
-        self.output = NodeMapping(self, self.outputs, tuple(NodeOutput(self, output) for output in self.outputs), False)
+        self.output = OutputNodeMapping(self, self.outputs, tuple(NodeOutput(self, output) for output in self.outputs), False)
         self.setDefaultInputs(**default_inputs)
 
 
@@ -657,3 +657,16 @@ class _UnitaryOperand(ProcessNode):
 
     def _run(self, input_1) -> tuple:
         return self.operand(input_1)
+    
+
+class OutputNodeMapping(NodeMapping):
+    def __init__(self, owner, keys, iterable, is_input):
+        super().__init__(owner, keys, iterable, is_input)
+        if not is_input:
+            self.__none_output__ = NodeOutput(owner, "__NONE__")
+        
+    def __getattr__(self, key):
+        if key == "__NONE__" and hasattr(self, "__none_output__"):
+            return self.__none_output__
+        else:
+            return super().__getattr__(key)

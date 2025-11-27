@@ -179,7 +179,10 @@ class NodeMapping(NodeDict):
 class NodeRunOutput(NodeDict):
     def __getattr__(self, key):
         try:
-            return super().__getattr__(key)
+            if key == '__NONE__':
+                return None
+            else:
+                return super().__getattr__(key)
         except:
             # for some reason parallel processing require direct mapping to properties are required
             raise ValueError(f"{object.__getattribute__(self, '_NodeDict__owner')} does not have an output named '{key}'.")
